@@ -1,0 +1,27 @@
+repository: acme/clash-hub-api
+webhook:
+  bearer_token_env: CLASH_HUB_API_WEBHOOK_BEARER
+  hmac_secret_env: CLASH_HUB_API_WEBHOOK_HMAC
+environments:
+  production:
+    image_name: ghcr.io/acme/clash-hub-api
+    compose_file: /opt/stacks/clash-hub-api/docker-compose.yml
+    runtime_env_file: /opt/stacks/clash-hub-api/.deploy.env
+    services:
+      - api
+      - worker
+    allowed_workflows:
+      - deploy-production
+    allowed_branches:
+      - main
+    allowed_tag_pattern: ^sha-[a-f0-9]{7,40}$
+    healthcheck:
+      enabled: true
+      url: http://127.0.0.1:3000/health
+    notifications:
+      telegram:
+        chat_ids:
+          - "123456789"
+      email:
+        recipients:
+          - backend@example.com

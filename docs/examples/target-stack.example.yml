@@ -1,0 +1,22 @@
+# Example docker-compose.yml for a stack managed by docker-deploy-webhook
+# This file lives on the target server, not inside this repository.
+
+services:
+  api:
+    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: example-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+      - .deploy.env
+
+  worker:
+    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: example-worker
+    restart: unless-stopped
+    command: ['node', 'dist/worker.js']
+    env_file:
+      - .env
+      - .deploy.env

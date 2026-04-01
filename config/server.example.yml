@@ -1,0 +1,30 @@
+server:
+  id: prod-app-1
+  port: 8080
+  history:
+    max_jobs: 250
+    ttl_seconds: 604800
+  rate_limit:
+    webhook_per_minute: 30
+    admin_per_minute: 60
+  security:
+    replay_window_seconds: 300
+    admin_read_token_env: DEPLOY_ADMIN_READ_TOKEN
+    admin_write_token_env: DEPLOY_ADMIN_WRITE_TOKEN
+  defaults:
+    pull_timeout_ms: 300000
+    up_timeout_ms: 300000
+    healthcheck_timeout_ms: 60000
+    healthcheck_interval_ms: 5000
+    retry_attempts: 2
+    retry_backoff_ms: 5000
+  notifications:
+    telegram:
+      enabled: false
+      bot_token_env: DEPLOY_TELEGRAM_BOT_TOKEN
+      chat_ids: []
+    email:
+      enabled: false
+      resend_api_key_env: DEPLOY_RESEND_API_KEY
+      from: deploys@example.com
+      recipients: []

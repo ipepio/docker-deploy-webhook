@@ -1,0 +1,83 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: meta
+        run: echo "version=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare webhook payload
+        id: payload
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg env "production" \
+            --arg tag "${{ needs.build-and-push.outputs.image_tag }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg workflow "${{ github.workflow }}" \
+            --arg ref "${{ github.ref_name }}" \
+            --argjson run_id "${{ github.run_id }}" \
+            '{repository: $repo, environment: $env, tag: $tag, sha: $sha, workflow: $workflow, ref_name: $ref, run_id: $run_id}')
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+
+      - name: Calculate HMAC signature
+        id: signature
+        run: |
+          TIMESTAMP=$(date +%s)
+          PAYLOAD='${{ steps.payload.outputs.payload }}'
+          MESSAGE="${TIMESTAMP}.${PAYLOAD}"
+          SIGNATURE="sha256=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "${{ secrets.DEPLOY_HMAC_SECRET }}" | awk '{print $2}')"
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+
+      - name: Call deploy webhook
+        run: |
+          curl --fail --silent --show-error \
+            --request POST \
+            --url "${{ secrets.DEPLOY_WEBHOOK_URL }}/deploy" \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer ${{ secrets.DEPLOY_BEARER_TOKEN }}" \
+            --header "X-Deploy-Timestamp: ${{ steps.signature.outputs.timestamp }}" \
+            --header "X-Deploy-Signature: ${{ steps.signature.outputs.signature }}" \
+            --data '${{ steps.payload.outputs.payload }}'
