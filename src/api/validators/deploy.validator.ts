@@ -39,11 +39,13 @@ export function validateDeployAgainstConfig(
     throw new HttpError(403, 'forbidden', 'Workflow is not allowed');
   }
 
-  if (!environmentConfig.allowedBranches.includes(payload.ref_name)) {
+  const tagPattern = new RegExp(environmentConfig.allowedTagPattern);
+  const refMatchesTagPattern = tagPattern.test(payload.ref_name);
+
+  if (!refMatchesTagPattern && !environmentConfig.allowedBranches.includes(payload.ref_name)) {
     throw new HttpError(403, 'forbidden', 'Branch is not allowed');
   }
 
-  const tagPattern = new RegExp(environmentConfig.allowedTagPattern);
   if (!tagPattern.test(payload.tag)) {
     throw new HttpError(403, 'forbidden', 'Tag is not allowed');
   }
