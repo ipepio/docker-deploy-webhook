@@ -4,6 +4,7 @@ import { findRepoFile, listRepoFiles, readRepoFile, writeRepoFile } from '../../
 import { getStackDirectory, resolveServiceEnvPath } from '../../config/paths';
 import { type RepoYaml } from '../../config/schema';
 import { readEnvFile, upsertManagedEnvBlock } from '../../config/service-env';
+import { unlinkSync, rmSync, existsSync } from 'fs';
 
 const DEFAULT_TAG_PATTERN = '^sha-[a-f0-9]{7,40}$';
 
@@ -307,4 +308,60 @@ export function syncEnvironmentWithStack(input: {
     healthcheckUrl: input.healthcheckUrl,
     disableHealthcheck: !input.healthcheckUrl,
   });
+}
+
+export interface RemoveRepositoryResult {
+  repository: string;
+  configFileRemoved: string;
+  secretsRemoved: boolean;
+  stackRemoved: boolean;
+}
+
+export function removeRepository(
+  repository: string,
+  opts: { removeStack?: boolean } = {},
+): RemoveRepositoryResult {
+  const file = findRepoFile(repository);
+  if (!file) {
+    throw new ConfigError(`Repository not found: ${repository}`);
+  }
+
+  // Remove config file
+  unlinkSync(file.filePath);
+
+  // Remove secrets block from .env
+  const envPath = resolveServiceEnvPath();
+  let secretsRemoved = false;
+  if (existsSync(envPath)) {
+    const startMarker = `# BEGIN docker-deploy-webhook repo ${repository}`;
+    const endMarker = `# END docker-deploy-webhook repo ${repository}`;
+    const { readFileSync, writeFileSync } = require('fs') as typeof import('fs');
+    const content = readFileSync(envPath, 'utf8');
+    const startIndex = content.indexOf(startMarker);
+    const endIndex = content.indexOf(endMarker);
+    if (startIndex >= 0 && endIndex >= startIndex) {
+      const blockEnd = endIndex + endMarker.length;
+      const suffix = content.slice(blockEnd).replace(/^\r?\n/, '');
+      const before = content.slice(0, startIndex).trimEnd();
+      writeFileSync(envPath, before.length > 0 ? `${before}\n\n${suffix}` : suffix, 'utf8');
+      secretsRemoved = true;
+    }
+  }
+
+  // Optionally remove stack directory
+  let stackRemoved = false;
+  if (opts.removeStack) {
+    const stackDir = getStackDirectory(repository);
+    if (existsSync(stackDir)) {
+      rmSync(stackDir, { recursive: true, force: true });
+      stackRemoved = true;
+    }
+  }
+
+  return {
+    repository,
+    configFileRemoved: file.filePath,
+    secretsRemoved,
+    stackRemoved,
+  };
 }

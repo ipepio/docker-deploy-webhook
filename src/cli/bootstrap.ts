@@ -5,6 +5,7 @@ import { getBooleanFlag, getListFlag, getStringFlag, parseCommandArgs } from './
 import { printJson, resolveList, resolveRequiredString } from './io';
 import { runInit } from './use-cases/instance-init';
 import { runStatus, formatStatus } from './use-cases/instance-status';
+import { runRepoAddWizard, printRepoAddChecklist } from './use-cases/repo-wizard';
 import {
   inferExistingService,
   parseSupportedServiceKinds,
@@ -36,7 +37,9 @@ function renderHelp(): string {
     'deployctl usage:',
     '  deployctl init                      Configure this instance (public URL, port, stacks dir)',
     '  deployctl status                    Show health of all components',
-    '  deployctl repo add --repository owner/repo [--environment production]',
+    '  deployctl repo add [--repository owner/repo] [--non-interactive]',
+    '  deployctl repo remove --repository owner/repo [--force] [--remove-stack]',
+    '  deployctl repo edit --repository owner/repo [--refresh-env-names]',
     '  deployctl repo edit --repository owner/repo [--refresh-env-names]',
     '  deployctl repo list',
     '  deployctl repo show --repository owner/repo',
@@ -99,13 +102,47 @@ async function handleRepoCommand(parsed: ReturnType<typeof parseCommandArgs>): P
   }
 
   if (action === 'add') {
-    const { repository, environment } = await resolveRepoEnvironmentFromArgs(parsed);
-    const services = await resolveList(getListFlag(parsed, 'services'), 'Deployable services', [
-      'app',
-    ]);
-    const result = addRepository({ repository, environment, services });
-    printWarnings(result.warnings);
+    const useJson = getBooleanFlag(parsed, 'json');
+    const result = await runRepoAddWizard({
+      repository: getStringFlag(parsed, 'repository'),
+      environment: getStringFlag(parsed, 'environment'),
+      imageName: getStringFlag(parsed, 'imageName'),
+      allowedBranches: getListFlag(parsed, 'allowedBranches'),
+      allowedTagPattern: getStringFlag(parsed, 'allowedTagPattern'),
+      allowedWorkflows: getListFlag(parsed, 'allowedWorkflows'),
+      services: getListFlag(parsed, 'services'),
+      stackServices: getListFlag(parsed, 'stackServices'),
+      nonInteractive: getBooleanFlag(parsed, 'nonInteractive'),
+    });
+    if (useJson) {
+      printJson(result);
+    } else {
+      printRepoAddChecklist(result);
+    }
+    return 0;
+  }
+
+  if (action === 'remove') {
+    const repository = await resolveRequiredString(
+      getStringFlag(parsed, 'repository'),
+      'Repository (owner/repo)',
+    );
+    // Explicit confirmation: type the repo name
+    if (!getBooleanFlag(parsed, 'force')) {
+      const answer = await resolveRequiredString(
+        undefined,
+        `Type "${repository}" to confirm removal`,
+      );
+      if (answer !== repository) {
+        process.stderr.write('Confirmation did not match. Aborting.\n');
+        return 1;
+      }
+    }
+    const removeStack = getBooleanFlag(parsed, 'removeStack');
+    const { removeRepository } = await import('./use-cases/repo-config');
+    const result = removeRepository(repository, { removeStack });
     printJson(result);
+    process.stdout.write('\nRemember to restart the webhook:\n  docker compose restart webhook\n\n');
     return 0;
   }
 

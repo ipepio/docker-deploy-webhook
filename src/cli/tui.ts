@@ -11,6 +11,7 @@ import {
   addRepository,
   editEnvironment,
   listRepositories,
+  removeRepository,
 } from './use-cases/repo-config';
 import { generateRepoSecrets, showRepoSecrets } from './use-cases/repo-secrets';
 import { validateRuntimeConfig } from '../config/runtime-validator';
@@ -28,20 +29,21 @@ async function promptMenuChoice(): Promise<string> {
       '',
       'deployctl tui',
       '1. Repo list',
-      '2. Repo add',
-      '3. Env add',
-      '4. Env edit',
-      '5. Repo secrets generate',
-      '6. Repo secrets show',
-      '7. Validate',
-      '8. Deploy manual',
-      '9. Redeploy last successful',
-      '10. Retry job',
-      '11. Stack init',
-      '12. Stack service add',
-      '13. Stack service edit',
-      '14. Migration scan',
-      '15. Migration plan',
+      '2. Repo add (wizard)',
+      '3. Repo remove',
+      '4. Env add',
+      '5. Env edit',
+      '6. Repo secrets generate',
+      '7. Repo secrets show',
+      '8. Validate',
+      '9. Deploy manual',
+      '10. Redeploy last successful',
+      '11. Retry job',
+      '12. Stack init',
+      '13. Stack service add',
+      '14. Stack service edit',
+      '15. Migration scan',
+      '16. Migration plan',
       '0. Exit',
       '',
     ].join('\n'),
@@ -70,18 +72,31 @@ export async function runTui(): Promise<number> {
           printJson(listRepositories());
           break;
         case '2': {
-          const repository = await promptRepository();
-          const environment = await promptEnvironment();
-          printJson(addRepository({ repository, environment }));
+          const { runRepoAddWizard, printRepoAddChecklist } = await import('./use-cases/repo-wizard');
+          const result = await runRepoAddWizard();
+          printRepoAddChecklist(result);
           break;
         }
         case '3': {
+          const repository = await promptRepository();
+          const confirm = await resolveRequiredString(
+            undefined,
+            `Type "${repository}" to confirm removal`,
+          );
+          if (confirm === repository) {
+            printJson(removeRepository(repository));
+          } else {
+            process.stderr.write('Confirmation did not match. Aborting.\n');
+          }
+          break;
+        }
+        case '4': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           printJson(addEnvironment({ repository, environment }));
           break;
         }
-        case '4': {
+        case '5': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const services = await resolveOptionalString(undefined, 'Services comma separated');
@@ -99,16 +114,16 @@ export async function runTui(): Promise<number> {
           );
           break;
         }
-        case '5':
+        case '6':
           printJson(generateRepoSecrets(await promptRepository()));
           break;
-        case '6':
+        case '7':
           printJson(showRepoSecrets(await promptRepository()));
           break;
-        case '7':
+        case '8':
           printJson(await validateRuntimeConfig());
           break;
-        case '8': {
+        case '9': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const tag = await resolveRequiredString(undefined, 'Tag');
@@ -119,7 +134,7 @@ export async function runTui(): Promise<number> {
           printJson(result);
           break;
         }
-        case '9': {
+        case '10': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const result = await withLocalRuntime(
@@ -129,13 +144,13 @@ export async function runTui(): Promise<number> {
           printJson(result);
           break;
         }
-        case '10': {
+        case '11': {
           const jobId = await resolveRequiredString(undefined, 'Job ID');
           const result = await withLocalRuntime(() => retryJob({ jobId }), { requireQueue: true });
           printJson(result);
           break;
         }
-        case '11': {
+        case '12': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const kinds = parseSupportedServiceKinds(
@@ -167,7 +182,7 @@ export async function runTui(): Promise<number> {
           );
           break;
         }
-        case '12': {
+        case '13': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const kind = parseSupportedServiceKinds([
@@ -181,7 +196,7 @@ export async function runTui(): Promise<number> {
           printJson(addManagedStackService(service));
           break;
         }
-        case '13': {
+        case '14': {
           const repository = await promptRepository();
           const environment = await promptEnvironment();
           const metadata = readStackMetadata(repository);
@@ -220,10 +235,10 @@ export async function runTui(): Promise<number> {
           );
           break;
         }
-        case '14':
+        case '15':
           printJson(scanMigration());
           break;
-        case '15':
+        case '16':
           printJson(buildMigrationPlan());
           break;
         case '0':
