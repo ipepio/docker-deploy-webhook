@@ -36,6 +36,26 @@ services:
       redis:
         condition: service_healthy
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: depctl-caddy
+    restart: unless-stopped
+    profiles: ['proxy']
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+      - '127.0.0.1:2019:2019'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - default
+      - depctl-proxy
+
   redis:
     image: redis:7-alpine
     container_name: docker-deploy-webhook-redis
@@ -51,3 +71,10 @@ services:
 
 volumes:
   redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  depctl-proxy:
+    external: true
+    name: depctl-proxy

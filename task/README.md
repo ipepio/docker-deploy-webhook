@@ -18,6 +18,19 @@ Harness, routing/JSON, snapshots/interactive, failure paths.
 ### Phase 4 — Operational (F14)
 Upgrade path for existing installations.
 
+### Phase 5 — Reverse proxy & SSL (F15–F21)
+Caddy integration: automatic reverse proxy, domain/IP routing, SSL management.
+
+| Feature | Description | Atomics |
+|---------|-------------|---------|
+| F15 | Caddy service bootstrap & port management | 3 |
+| F16 | Caddyfile generation engine | 2 |
+| F17 | Domain & IP routing | 3 |
+| F18 | SSL management (off / self-signed / auto) | 3 |
+| F19 | Proxy CLI commands | 3 |
+| F20 | Deploy hooks for proxy updates | 2 |
+| F21 | Proxy integration tests | 3 |
+
 ## Totals
-- 14 features
-- 38 atomics
+- 21 features
+- 57 atomics

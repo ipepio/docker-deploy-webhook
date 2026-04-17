@@ -1,11 +1,11 @@
-import {
-  validateDeployAgainstConfig,
-} from './deploy.validator';
+import { validateDeployAgainstConfig } from './deploy.validator';
 import { type RepoConfig } from '../../config/schema';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
-function makeRepoConfig(overrides: Partial<RepoConfig['environments']['production']> = {}): RepoConfig {
+function makeRepoConfig(
+  overrides: Partial<RepoConfig['environments']['production']> = {},
+): RepoConfig {
   return {
     repository: 'acme/test-app',
     webhook: { bearerToken: 'token', hmacSecret: 'secret' },
@@ -39,20 +39,14 @@ describe('deploy validator — ref_name (Task 9.1 / bug fix)', () => {
   it('accepts branch name in allowedBranches', () => {
     const config = makeRepoConfig();
     expect(() =>
-      validateDeployAgainstConfig(
-        { ...basePayload, tag: 'v1.0.0', ref_name: 'master' },
-        config,
-      ),
+      validateDeployAgainstConfig({ ...basePayload, tag: 'v1.0.0', ref_name: 'master' }, config),
     ).not.toThrow();
   });
 
   it('accepts tag ref_name that matches allowedTagPattern (bug fix)', () => {
     const config = makeRepoConfig();
     expect(() =>
-      validateDeployAgainstConfig(
-        { ...basePayload, tag: 'v1.2.3', ref_name: 'v1.2.3' },
-        config,
-      ),
+      validateDeployAgainstConfig({ ...basePayload, tag: 'v1.2.3', ref_name: 'v1.2.3' }, config),
     ).not.toThrow();
   });
 

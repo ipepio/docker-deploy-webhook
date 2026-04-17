@@ -8,10 +8,7 @@ import { findRepoFile } from '../../config/repo-files';
 import { resolveConfigPaths, getStackDirectory, resolveServiceEnvPath } from '../../config/paths';
 import { type ServerYaml } from '../../config/schema';
 import { resolveRequiredString, resolveOptionalString, confirm } from '../io';
-import {
-  addRepository,
-  getRepositorySecretEnvNames,
-} from './repo-config';
+import { addRepository, getRepositorySecretEnvNames } from './repo-config';
 import { generateRepoSecrets, showRepoSecrets } from './repo-secrets';
 import { initializeManagedStack, type StackServiceInput } from './stack';
 import { parseSupportedServiceKinds, resolveStackServiceInput } from '../stack/input';
@@ -73,12 +70,8 @@ export interface RepoWizardResult {
 // ─────────────────────────────────────────────
 
 export async function runRepoAddWizard(options: RepoWizardOptions = {}): Promise<RepoWizardResult> {
-
   // ── Step 1: repo & image ────────────────────
-  const repository = await resolveRequiredString(
-    options.repository,
-    'Repository (owner/repo)',
-  );
+  const repository = await resolveRequiredString(options.repository, 'Repository (owner/repo)');
   validateRepository(repository);
 
   if (findRepoFile(repository)) {
@@ -154,7 +147,7 @@ export async function runRepoAddWizard(options: RepoWizardOptions = {}): Promise
 
   // ── Step 7: create repo config ──────────────
   const stackDirectory = getStackDirectory(repository);
-  const configResult = addRepository({
+  const configResult = await addRepository({
     repository,
     environment,
     imageName,
@@ -187,9 +180,7 @@ export async function runRepoAddWizard(options: RepoWizardOptions = {}): Promise
   const serviceKinds = parseSupportedServiceKinds(stackServiceKindNames);
   const stackServiceInputs: StackServiceInput[] = [];
   for (const kind of serviceKinds) {
-    stackServiceInputs.push(
-      await resolveStackServiceInput({ repository, environment, kind }),
-    );
+    stackServiceInputs.push(await resolveStackServiceInput({ repository, environment, kind }));
   }
 
   initializeManagedStack({ repository, environment, services: stackServiceInputs });

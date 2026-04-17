@@ -13,7 +13,13 @@ import {
   listRepositories,
   removeRepository,
 } from './use-cases/repo-config';
-import { generateRepoSecrets, showRepoSecrets, rotateRepoSecrets, formatSecretsChecklist, formatRotateChecklist } from './use-cases/repo-secrets';
+import {
+  generateRepoSecrets,
+  showRepoSecrets,
+  rotateRepoSecrets,
+  formatSecretsChecklist,
+  formatRotateChecklist,
+} from './use-cases/repo-secrets';
 import { validateRuntimeConfig } from '../config/runtime-validator';
 import { manualDeploy, redeployLastSuccessful, retryJob } from './use-cases/deploy-actions';
 import {
@@ -73,7 +79,8 @@ export async function runTui(): Promise<number> {
           printJson(listRepositories());
           break;
         case '2': {
-          const { runRepoAddWizard, printRepoAddChecklist } = await import('./use-cases/repo-wizard');
+          const { runRepoAddWizard, printRepoAddChecklist } =
+            await import('./use-cases/repo-wizard');
           const result = await runRepoAddWizard();
           printRepoAddChecklist(result);
           break;
@@ -125,7 +132,10 @@ export async function runTui(): Promise<number> {
         }
         case '7a': {
           const repository = await promptRepository();
-          const ok = await resolveRequiredString(undefined, `Type "yes" to rotate secrets for ${repository}`);
+          const ok = await resolveRequiredString(
+            undefined,
+            `Type "yes" to rotate secrets for ${repository}`,
+          );
           if (ok === 'yes') {
             const secrets = rotateRepoSecrets(repository);
             process.stdout.write(formatRotateChecklist(secrets));

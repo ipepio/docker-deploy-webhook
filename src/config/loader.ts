@@ -79,6 +79,8 @@ function toServerConfig(serverYaml: ServerYaml): ServerConfig {
     );
   }
 
+  const proxy = serverYaml.server.proxy;
+
   return {
     id: serverYaml.server.id,
     publicUrl: serverYaml.server.public_url,
@@ -116,6 +118,13 @@ function toServerConfig(serverYaml: ServerYaml): ServerConfig {
         from: email.from,
         recipients: email.recipients,
       },
+    },
+    proxy: {
+      enabled: proxy.enabled,
+      portsAuthorized: proxy.ports_authorized,
+      fallbackIp: proxy.fallback_ip,
+      acmeEmail: proxy.acme_email,
+      nextPort: proxy.next_port,
     },
   };
 }
@@ -216,6 +225,16 @@ function toEnvironmentConfig(yamlEnvironment: RepoYaml['environments'][string]):
                 recipients: yamlEnvironment.notifications.email.recipients,
               }
             : undefined,
+        }
+      : undefined,
+    proxy: yamlEnvironment.proxy
+      ? {
+          enabled: yamlEnvironment.proxy.enabled,
+          domain: yamlEnvironment.proxy.domain,
+          containerPort: yamlEnvironment.proxy.container_port,
+          ssl: yamlEnvironment.proxy.ssl,
+          assignedPort: yamlEnvironment.proxy.assigned_port,
+          upstream: yamlEnvironment.proxy.upstream,
         }
       : undefined,
   };

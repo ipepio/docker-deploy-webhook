@@ -65,7 +65,8 @@ environments:
   });
 
   it('shows secrets that were generated', () => {
-    const { generateRepoSecrets, showRepoSecrets } = require('./repo-secrets') as typeof import('./repo-secrets');
+    const { generateRepoSecrets, showRepoSecrets } =
+      require('./repo-secrets') as typeof import('./repo-secrets');
     generateRepoSecrets('acme/test-app');
     const revealed = showRepoSecrets('acme/test-app');
     expect(revealed.bearerToken).toMatch(/^[a-f0-9]{64}$/);
@@ -73,7 +74,8 @@ environments:
   });
 
   it('rotate generates new secrets different from originals', () => {
-    const { generateRepoSecrets, showRepoSecrets, rotateRepoSecrets } = require('./repo-secrets') as typeof import('./repo-secrets');
+    const { generateRepoSecrets, showRepoSecrets, rotateRepoSecrets } =
+      require('./repo-secrets') as typeof import('./repo-secrets');
     generateRepoSecrets('acme/test-app');
     const before = showRepoSecrets('acme/test-app');
     const rotated = rotateRepoSecrets('acme/test-app');

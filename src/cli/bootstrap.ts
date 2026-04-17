@@ -8,19 +8,43 @@ import { handleInit, handleStatus } from './commands/instance.command';
 import {
   handleWorkflowGenerate,
   handleValidate,
-  handleStackInit, handleStackShow, handleStackServiceAdd, handleStackServiceEdit,
-  handleMigrateScan, handleMigratePlan, handleMigrateApply,
+  handleStackInit,
+  handleStackShow,
+  handleStackServiceAdd,
+  handleStackServiceEdit,
+  handleMigrateScan,
+  handleMigratePlan,
+  handleMigrateApply,
   handleTui,
 } from './commands/platform.command';
 import {
-  handleRepoAdd, handleRepoList, handleRepoShow, handleRepoEdit, handleRepoRemove,
-  handleSecretsGenerate, handleSecretsShow, handleSecretsRotate,
-  handleEnvAdd, handleEnvEdit,
+  handleRepoAdd,
+  handleRepoList,
+  handleRepoShow,
+  handleRepoEdit,
+  handleRepoRemove,
+  handleSecretsGenerate,
+  handleSecretsShow,
+  handleSecretsRotate,
+  handleEnvAdd,
+  handleEnvEdit,
 } from './commands/repo.command';
 import {
-  handleDeployManual, handleRedeployLast, handleRetry,
-  handleHistory, handleLogs, handleRollback,
+  handleDeployManual,
+  handleRedeployLast,
+  handleRetry,
+  handleHistory,
+  handleLogs,
+  handleRollback,
 } from './commands/deploy.command';
+import {
+  handleProxyInit,
+  handleProxyStatus,
+  handleProxyDomains,
+  handleProxyEnable,
+  handleProxyDisable,
+  handleProxySsl,
+} from './commands/proxy.command';
 
 // ─────────────────────────────────────────────────────────────────────────────
 const HELP = `
@@ -63,49 +87,63 @@ depctl usage:
   depctl migrate apply
 
   depctl tui
+
+  depctl proxy init    [--email <acme-email>]     Initialize reverse proxy (Caddy, ports 80/443)
+  depctl proxy status  [--json]                   Caddy health, routes, SSL breakdown
+  depctl proxy domains [--json]                   List all proxy routes with URLs
+  depctl proxy enable  <owner/repo> [--env <env>] [--domain <d>] [--port <p>] [--ssl <mode>]
+  depctl proxy disable <owner/repo> [--env <env>] Remove proxy route
+  depctl proxy ssl     <owner/repo> [--env <env>] [--mode off|self-signed|auto]
 `;
 
 function buildRouter(): CommandRouter {
   const router = new CommandRouter();
 
-  router.register('init',    handleInit);
-  router.register('status',  handleStatus);
+  router.register('init', handleInit);
+  router.register('status', handleStatus);
 
-  router.register('repo add',    handleRepoAdd);
-  router.register('repo list',   handleRepoList);
-  router.register('repo show',   handleRepoShow);
-  router.register('repo edit',   handleRepoEdit);
+  router.register('repo add', handleRepoAdd);
+  router.register('repo list', handleRepoList);
+  router.register('repo show', handleRepoShow);
+  router.register('repo edit', handleRepoEdit);
   router.register('repo remove', handleRepoRemove);
 
   router.register('repo secrets generate', handleSecretsGenerate);
-  router.register('repo secrets show',     handleSecretsShow);
-  router.register('repo secrets rotate',   handleSecretsRotate);
+  router.register('repo secrets show', handleSecretsShow);
+  router.register('repo secrets rotate', handleSecretsRotate);
 
-  router.register('env add',  handleEnvAdd);
+  router.register('env add', handleEnvAdd);
   router.register('env edit', handleEnvEdit);
 
-  router.register('logs',     handleLogs);
-  router.register('history',  handleHistory);
+  router.register('logs', handleLogs);
+  router.register('history', handleHistory);
   router.register('rollback', handleRollback);
 
-  router.register('deploy manual',                   handleDeployManual);
+  router.register('deploy manual', handleDeployManual);
   router.register('deploy redeploy-last-successful', handleRedeployLast);
-  router.register('deploy retry',                    handleRetry);
+  router.register('deploy retry', handleRetry);
 
-  router.register('stack init',         handleStackInit);
-  router.register('stack show',         handleStackShow);
-  router.register('stack service add',  handleStackServiceAdd);
+  router.register('stack init', handleStackInit);
+  router.register('stack show', handleStackShow);
+  router.register('stack service add', handleStackServiceAdd);
   router.register('stack service edit', handleStackServiceEdit);
 
   router.register('workflow generate', handleWorkflowGenerate);
 
   router.register('validate', handleValidate);
 
-  router.register('migrate scan',  handleMigrateScan);
-  router.register('migrate plan',  handleMigratePlan);
+  router.register('migrate scan', handleMigrateScan);
+  router.register('migrate plan', handleMigratePlan);
   router.register('migrate apply', handleMigrateApply);
 
   router.register('tui', handleTui);
+
+  router.register('proxy init', handleProxyInit);
+  router.register('proxy status', handleProxyStatus);
+  router.register('proxy domains', handleProxyDomains);
+  router.register('proxy enable', handleProxyEnable);
+  router.register('proxy disable', handleProxyDisable);
+  router.register('proxy ssl', handleProxySsl);
 
   return router;
 }
@@ -115,8 +153,7 @@ function buildRouter(): CommandRouter {
 export async function runAdminCommand(args: string[]): Promise<number> {
   const parsed = parseCommandArgs(args);
 
-  if (parsed.positionals.length === 0 ||
-      ['help', '--help', '-h'].includes(parsed.positionals[0])) {
+  if (parsed.positionals.length === 0 || ['help', '--help', '-h'].includes(parsed.positionals[0])) {
     process.stdout.write(`${HELP}\n`);
     return 0;
   }

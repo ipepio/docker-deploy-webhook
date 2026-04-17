@@ -17,13 +17,13 @@ describe('repo config use cases', () => {
     delete process.env.STACKS_ROOT;
   });
 
-  it('creates a canonical repo config file with defaults', () => {
+  it('creates a canonical repo config file with defaults', async () => {
     const workspace = createTempAdminWorkspace();
     process.env.REPOS_CONFIG_PATH = workspace.reposConfigPath;
     process.env.SERVICE_ENV_PATH = workspace.serviceEnvPath;
     process.env.STACKS_ROOT = workspace.stacksRoot;
 
-    const result = addRepository({
+    const result = await addRepository({
       repository: 'acme/payments-api',
       environment: 'production',
     });
@@ -44,24 +44,24 @@ describe('repo config use cases', () => {
     });
   });
 
-  it('migrates existing repo secret values when env names are refreshed', () => {
+  it('migrates existing repo secret values when env names are refreshed', async () => {
     const workspace = createTempAdminWorkspace();
     process.env.REPOS_CONFIG_PATH = workspace.reposConfigPath;
     process.env.SERVICE_ENV_PATH = workspace.serviceEnvPath;
     process.env.STACKS_ROOT = workspace.stacksRoot;
 
-    addRepository({
+    await addRepository({
       repository: 'acme/payments-api',
       environment: 'production',
     });
     generateRepoSecrets('acme/payments-api');
 
-    editRepository({
+    await editRepository({
       repository: 'acme/payments-api',
       bearerTokenEnv: 'LEGACY_BEARER',
       hmacSecretEnv: 'LEGACY_HMAC',
     });
-    const migrated = editRepository({
+    const migrated = await editRepository({
       repository: 'acme/payments-api',
       refreshEnvNames: true,
     });

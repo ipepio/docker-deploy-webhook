@@ -17,9 +17,9 @@ export const ERRORS = {
     code: 'ghcr_unauthorized',
     message: 'GHCR authentication required — no credentials found for this registry.',
     hint:
-      "Run: docker login ghcr.io\n" +
+      'Run: docker login ghcr.io\n' +
       "  You need a GitHub PAT (classic) with 'read:packages' scope.\n" +
-      "  Create one at: https://github.com/settings/tokens/new?scopes=read:packages",
+      '  Create one at: https://github.com/settings/tokens/new?scopes=read:packages',
   },
   GHCR_DENIED: {
     code: 'ghcr_denied',
@@ -31,7 +31,11 @@ export const ERRORS = {
   },
 
   // ── Deploy validator (403s) ────────────────────────────────────
-  BRANCH_NOT_ALLOWED: (refName: string, allowed: string[], tagPattern: string): ActionableError => ({
+  BRANCH_NOT_ALLOWED: (
+    refName: string,
+    allowed: string[],
+    tagPattern: string,
+  ): ActionableError => ({
     code: 'branch_not_allowed',
     message: `ref_name "${refName}" is not in allowed_branches and does not match allowed_tag_pattern.`,
     hint:
@@ -103,9 +107,7 @@ export const ERRORS = {
   REPOSITORY_NOT_FOUND: (repository: string): ActionableError => ({
     code: 'repository_not_found',
     message: `Repository not configured: ${repository}`,
-    hint:
-      `Run: depctl repo add\n` +
-      `  Or list configured repos with: depctl repo list`,
+    hint: `Run: depctl repo add\n` + `  Or list configured repos with: depctl repo list`,
   }),
 } as const;
 

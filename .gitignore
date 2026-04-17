@@ -7,3 +7,6 @@ data/
 logs/
 coverage/
 *.log
+
+# Claude Code - keep project settings, ignore local state
+.claude/settings.local.json

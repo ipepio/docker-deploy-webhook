@@ -50,7 +50,9 @@ function validateAgainstRepoConfig(
   const warnings: string[] = [];
   const repoFile = findRepoFile(repository);
   if (!repoFile) {
-    warnings.push(`Repository "${repository}" is not configured in this deployer. Register it first with: depctl repo add`);
+    warnings.push(
+      `Repository "${repository}" is not configured in this deployer. Register it first with: depctl repo add`,
+    );
     return warnings;
   }
 
@@ -246,9 +248,7 @@ function buildWorkflowYaml(opts: {
   // Webhook steps — one per environment, with conditional if needed
   const multiEnv = environments.length > 1;
   for (const envConfig of environments) {
-    const secretSuffix = multiEnv
-      ? `_${envConfig.environment.toUpperCase()}`
-      : '';
+    const secretSuffix = multiEnv ? `_${envConfig.environment.toUpperCase()}` : '';
 
     const step = buildWebhookStep(workflowName, envConfig, secretSuffix);
 
@@ -269,9 +269,7 @@ function buildWorkflowYaml(opts: {
   const workflow = {
     name: workflowName,
     on: onSection,
-    permissions: buildDocker
-      ? { contents: 'read', packages: 'write' }
-      : { contents: 'read' },
+    permissions: buildDocker ? { contents: 'read', packages: 'write' } : { contents: 'read' },
     jobs: {
       release: {
         'runs-on': 'ubuntu-latest',
@@ -292,8 +290,7 @@ export async function runWorkflowGeneratorWizard(
 ): Promise<WorkflowGeneratorResult> {
   // List configured repos for hint
   const configuredRepos = listRepoFiles().map((f) => f.repoYaml.repository);
-  const repoHint =
-    configuredRepos.length > 0 ? configuredRepos[0] : 'owner/repo';
+  const repoHint = configuredRepos.length > 0 ? configuredRepos[0] : 'owner/repo';
 
   const repository = await resolveRequiredString(
     opts.repository,
@@ -314,17 +311,11 @@ export async function runWorkflowGeneratorWizard(
   );
   const buildDocker = (buildDockerStr ?? 'yes').toLowerCase() !== 'no';
 
-  const registry = await resolveRequiredString(
-    opts.registry,
-    'Docker registry',
-    'ghcr.io',
-  );
+  const registry = await resolveRequiredString(opts.registry, 'Docker registry', 'ghcr.io');
 
   // Load repo config to suggest environments and defaults
   const repoFile = findRepoFile(repository);
-  const configuredEnvs = repoFile
-    ? Object.keys(repoFile.repoYaml.environments)
-    : ['production'];
+  const configuredEnvs = repoFile ? Object.keys(repoFile.repoYaml.environments) : ['production'];
 
   // Build environment configs
   let environments: WorkflowEnvConfig[];
@@ -420,10 +411,7 @@ export function printWorkflowResult(result: WorkflowGeneratorResult): void {
   process.stdout.write(`${divider}\n\n`);
 }
 
-export function writeWorkflowToFile(
-  result: WorkflowGeneratorResult,
-  outputPath?: string,
-): string {
+export function writeWorkflowToFile(result: WorkflowGeneratorResult, outputPath?: string): string {
   let filePath: string;
 
   if (outputPath) {

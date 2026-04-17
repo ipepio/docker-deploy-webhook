@@ -1,4 +1,9 @@
-import { createHarnessWorkspace, addRepoFixture, runCli, normalizeOutput } from '../../test-utils/cli-harness';
+import {
+  createHarnessWorkspace,
+  addRepoFixture,
+  runCli,
+  normalizeOutput,
+} from '../../test-utils/cli-harness';
 
 describe('CLI human output snapshots (F12)', () => {
   let workspace: ReturnType<typeof createHarnessWorkspace>;
@@ -8,7 +13,9 @@ describe('CLI human output snapshots (F12)', () => {
     addRepoFixture(workspace, 'acme/snapshot-app');
   });
 
-  afterAll(() => { workspace.cleanup(); });
+  afterAll(() => {
+    workspace.cleanup();
+  });
 
   it('repo show human format contains key sections', () => {
     const result = runCli(['repo', 'show', '--repository', 'acme/snapshot-app'], workspace);
@@ -27,7 +34,10 @@ describe('CLI human output snapshots (F12)', () => {
   });
 
   it('secrets show human format contains expected labels', () => {
-    const result = runCli(['repo', 'secrets', 'show', '--repository', 'acme/snapshot-app'], workspace);
+    const result = runCli(
+      ['repo', 'secrets', 'show', '--repository', 'acme/snapshot-app'],
+      workspace,
+    );
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('DEPLOY_WEBHOOK_URL');
     expect(result.stdout).toContain('DEPLOY_WEBHOOK_BEARER');

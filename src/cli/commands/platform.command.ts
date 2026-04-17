@@ -3,9 +3,19 @@ import { getBooleanFlag, getStringFlag, getListFlag } from '../argv';
 import { printJson, resolveRequiredString, resolveList } from '../io';
 import { validateRuntimeConfig } from '../../config/runtime-validator';
 import { parseSupportedServiceKinds, resolveStackServiceInput } from '../stack/input';
-import { initializeManagedStack, addManagedStackService, editManagedStackService, readStackMetadata, type StackServiceInput } from '../use-cases/stack';
+import {
+  initializeManagedStack,
+  addManagedStackService,
+  editManagedStackService,
+  readStackMetadata,
+  type StackServiceInput,
+} from '../use-cases/stack';
 import { inferExistingService } from '../stack/input';
-import { runWorkflowGeneratorWizard, printWorkflowResult, writeWorkflowToFile } from '../use-cases/workflow-generator';
+import {
+  runWorkflowGeneratorWizard,
+  printWorkflowResult,
+  writeWorkflowToFile,
+} from '../use-cases/workflow-generator';
 import { buildMigrationPlan, applyMigration, scanMigration } from '../use-cases/migration';
 import { runTui } from '../tui';
 
@@ -18,10 +28,15 @@ function getStackServiceOverrides(parsed: ParsedCommandArgs): Partial<StackServi
     username: getStringFlag(parsed, 'username'),
     password: getStringFlag(parsed, 'password'),
     targetService: getStringFlag(parsed, 'targetService'),
-    targetPort: getStringFlag(parsed, 'targetPort') ? Number(getStringFlag(parsed, 'targetPort')) : undefined,
+    targetPort: getStringFlag(parsed, 'targetPort')
+      ? Number(getStringFlag(parsed, 'targetPort'))
+      : undefined,
     port: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
-    internalPort: getStringFlag(parsed, 'internalPort') ? Number(getStringFlag(parsed, 'internalPort')) : undefined,
-    appendOnly: parsed.flags.appendOnly !== undefined ? getBooleanFlag(parsed, 'appendOnly') : undefined,
+    internalPort: getStringFlag(parsed, 'internalPort')
+      ? Number(getStringFlag(parsed, 'internalPort'))
+      : undefined,
+    appendOnly:
+      parsed.flags.appendOnly !== undefined ? getBooleanFlag(parsed, 'appendOnly') : undefined,
   };
 }
 
@@ -37,11 +52,15 @@ export async function handleWorkflowGenerate(parsed: ParsedCommandArgs): Promise
   const result = await runWorkflowGeneratorWizard({
     repository: getStringFlag(parsed, 'repository'),
     workflowName: getStringFlag(parsed, 'workflowName') ?? getStringFlag(parsed, 'name'),
-    buildDocker: parsed.flags.buildDocker !== undefined ? getBooleanFlag(parsed, 'buildDocker') : undefined,
+    buildDocker:
+      parsed.flags.buildDocker !== undefined ? getBooleanFlag(parsed, 'buildDocker') : undefined,
     registry: getStringFlag(parsed, 'registry'),
     nonInteractive: getBooleanFlag(parsed, 'nonInteractive'),
   });
-  if (getBooleanFlag(parsed, 'json')) { printJson(result); return 0; }
+  if (getBooleanFlag(parsed, 'json')) {
+    printJson(result);
+    return 0;
+  }
   printWorkflowResult(result);
   const outputPath = getStringFlag(parsed, 'output');
   if (getBooleanFlag(parsed, 'write') || outputPath) {
@@ -53,17 +72,28 @@ export async function handleWorkflowGenerate(parsed: ParsedCommandArgs): Promise
 
 // ── stack init ────────────────────────────────────────────────────────────────
 export async function handleStackInit(parsed: ParsedCommandArgs): Promise<number> {
-  const repository = await resolveRequiredString(getStringFlag(parsed, 'repository'), 'Repository (owner/repo)');
-  const environment = await resolveRequiredString(getStringFlag(parsed, 'environment'), 'Environment', 'production');
+  const repository = await resolveRequiredString(
+    getStringFlag(parsed, 'repository'),
+    'Repository (owner/repo)',
+  );
+  const environment = await resolveRequiredString(
+    getStringFlag(parsed, 'environment'),
+    'Environment',
+    'production',
+  );
   const serviceKinds = parseSupportedServiceKinds(
     await resolveList(getListFlag(parsed, 'services'), 'Stack services', ['app']),
   );
   const services: StackServiceInput[] = [];
   for (const kind of serviceKinds) {
-    services.push(await resolveStackServiceInput({
-      repository, environment, kind,
-      overrides: serviceKinds.length === 1 ? getStackServiceOverrides(parsed) : undefined,
-    }));
+    services.push(
+      await resolveStackServiceInput({
+        repository,
+        environment,
+        kind,
+        overrides: serviceKinds.length === 1 ? getStackServiceOverrides(parsed) : undefined,
+      }),
+    );
   }
   printJson(initializeManagedStack({ repository, environment, services }));
   return 0;
@@ -71,39 +101,77 @@ export async function handleStackInit(parsed: ParsedCommandArgs): Promise<number
 
 // ── stack show ────────────────────────────────────────────────────────────────
 export async function handleStackShow(parsed: ParsedCommandArgs): Promise<number> {
-  const repository = await resolveRequiredString(getStringFlag(parsed, 'repository'), 'Repository (owner/repo)');
+  const repository = await resolveRequiredString(
+    getStringFlag(parsed, 'repository'),
+    'Repository (owner/repo)',
+  );
   printJson(readStackMetadata(repository));
   return 0;
 }
 
 // ── stack service add ─────────────────────────────────────────────────────────
 export async function handleStackServiceAdd(parsed: ParsedCommandArgs): Promise<number> {
-  const repository = await resolveRequiredString(getStringFlag(parsed, 'repository'), 'Repository (owner/repo)');
-  const environment = await resolveRequiredString(getStringFlag(parsed, 'environment'), 'Environment', 'production');
-  const kind = parseSupportedServiceKinds([await resolveRequiredString(getStringFlag(parsed, 'kind'), 'Service kind')])[0];
-  const service = await resolveStackServiceInput({ repository, environment, kind, overrides: getStackServiceOverrides(parsed) });
+  const repository = await resolveRequiredString(
+    getStringFlag(parsed, 'repository'),
+    'Repository (owner/repo)',
+  );
+  const environment = await resolveRequiredString(
+    getStringFlag(parsed, 'environment'),
+    'Environment',
+    'production',
+  );
+  const kind = parseSupportedServiceKinds([
+    await resolveRequiredString(getStringFlag(parsed, 'kind'), 'Service kind'),
+  ])[0];
+  const service = await resolveStackServiceInput({
+    repository,
+    environment,
+    kind,
+    overrides: getStackServiceOverrides(parsed),
+  });
   printJson(addManagedStackService(service));
   return 0;
 }
 
 // ── stack service edit ────────────────────────────────────────────────────────
 export async function handleStackServiceEdit(parsed: ParsedCommandArgs): Promise<number> {
-  const repository = await resolveRequiredString(getStringFlag(parsed, 'repository'), 'Repository (owner/repo)');
-  const environment = await resolveRequiredString(getStringFlag(parsed, 'environment'), 'Environment', 'production');
-  const serviceName = await resolveRequiredString(getStringFlag(parsed, 'serviceName'), 'Service name');
+  const repository = await resolveRequiredString(
+    getStringFlag(parsed, 'repository'),
+    'Repository (owner/repo)',
+  );
+  const environment = await resolveRequiredString(
+    getStringFlag(parsed, 'environment'),
+    'Environment',
+    'production',
+  );
+  const serviceName = await resolveRequiredString(
+    getStringFlag(parsed, 'serviceName'),
+    'Service name',
+  );
   const metadata = readStackMetadata(repository);
   const existing = inferExistingService(metadata.services, serviceName);
-  if (!existing) { process.stderr.write(`Unknown managed service: ${serviceName}\n`); return 1; }
+  if (!existing) {
+    process.stderr.write(`Unknown managed service: ${serviceName}\n`);
+    return 1;
+  }
   const kind = getStringFlag(parsed, 'kind')
     ? parseSupportedServiceKinds([getStringFlag(parsed, 'kind') as string])[0]
     : existing.kind;
   const service = await resolveStackServiceInput({
-    repository, environment, kind,
+    repository,
+    environment,
+    kind,
     defaults: {
-      serviceName: existing.serviceName, port: existing.port, internalPort: existing.internalPort,
-      command: existing.command, healthcheckPath: existing.healthcheckPath,
-      databaseName: existing.databaseName, username: existing.username,
-      targetService: existing.targetService, targetPort: existing.targetPort, appendOnly: existing.appendOnly,
+      serviceName: existing.serviceName,
+      port: existing.port,
+      internalPort: existing.internalPort,
+      command: existing.command,
+      healthcheckPath: existing.healthcheckPath,
+      databaseName: existing.databaseName,
+      username: existing.username,
+      targetService: existing.targetService,
+      targetPort: existing.targetPort,
+      appendOnly: existing.appendOnly,
     },
     overrides: { ...getStackServiceOverrides(parsed), serviceName },
   });
@@ -113,13 +181,16 @@ export async function handleStackServiceEdit(parsed: ParsedCommandArgs): Promise
 
 // ── migrate ───────────────────────────────────────────────────────────────────
 export async function handleMigrateScan(_parsed: ParsedCommandArgs): Promise<number> {
-  printJson(scanMigration()); return 0;
+  printJson(scanMigration());
+  return 0;
 }
 export async function handleMigratePlan(_parsed: ParsedCommandArgs): Promise<number> {
-  printJson(buildMigrationPlan()); return 0;
+  printJson(buildMigrationPlan());
+  return 0;
 }
 export async function handleMigrateApply(_parsed: ParsedCommandArgs): Promise<number> {
-  printJson(applyMigration()); return 0;
+  printJson(applyMigration());
+  return 0;
 }
 
 // ── tui ───────────────────────────────────────────────────────────────────────

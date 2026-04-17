@@ -5,6 +5,19 @@ import { getStackDirectory, resolveServiceEnvPath } from '../../config/paths';
 import { type RepoYaml } from '../../config/schema';
 import { readEnvFile, upsertManagedEnvBlock } from '../../config/service-env';
 import { unlinkSync, rmSync, existsSync } from 'fs';
+import { readServerProxySettings } from '../../proxy/proxy-config';
+import { rebuildAndReload } from '../../proxy/caddyfile-writer';
+
+async function maybeTriggerProxyRebuild(): Promise<void> {
+  try {
+    const settings = readServerProxySettings();
+    if (settings.portsAuthorized) {
+      await rebuildAndReload({ fallbackIp: settings.fallbackIp, acmeEmail: settings.acmeEmail });
+    }
+  } catch {
+    // Non-fatal: proxy rebuild failure should not block repo config operations
+  }
+}
 
 const DEFAULT_TAG_PATTERN = '^sha-[a-f0-9]{7,40}$';
 
@@ -131,7 +144,7 @@ export function showRepository(repository: string): RepoYaml {
   return readRepoFile(repository);
 }
 
-export function addRepository(input: UpsertEnvironmentInput): RepoMutationResult {
+export async function addRepository(input: UpsertEnvironmentInput): Promise<RepoMutationResult> {
   if (findRepoFile(input.repository)) {
     throw new ConfigError(`Repository already exists: ${input.repository}`);
   }
@@ -151,6 +164,7 @@ export function addRepository(input: UpsertEnvironmentInput): RepoMutationResult
   const issues = validateRepoDraft(repoYaml);
   throwOnDraftErrors(issues);
   const filePath = writeRepoFile(input.repository, repoYaml);
+  await maybeTriggerProxyRebuild();
   return {
     repository: input.repository,
     environment: input.environment,
@@ -159,12 +173,12 @@ export function addRepository(input: UpsertEnvironmentInput): RepoMutationResult
   };
 }
 
-export function editRepository(input: {
+export async function editRepository(input: {
   repository: string;
   bearerTokenEnv?: string;
   hmacSecretEnv?: string;
   refreshEnvNames?: boolean;
-}): RepoMutationResult {
+}): Promise<RepoMutationResult> {
   const current = readRepoFile(input.repository);
   const defaults = getRepositorySecretEnvNames(input.repository);
   const nextBearerTokenEnv =
@@ -185,6 +199,7 @@ export function editRepository(input: {
   throwOnDraftErrors(issues);
   const filePath = writeRepoFile(input.repository, repoYaml);
   const warnings = collectWarnings(issues);
+  await maybeTriggerProxyRebuild();
 
   if (
     current.webhook.bearer_token_env !== nextBearerTokenEnv ||
@@ -216,7 +231,7 @@ export function editRepository(input: {
   };
 }
 
-export function addEnvironment(input: UpsertEnvironmentInput): RepoMutationResult {
+export async function addEnvironment(input: UpsertEnvironmentInput): Promise<RepoMutationResult> {
   const current = readRepoFile(input.repository);
   if (current.environments[input.environment]) {
     throw new ConfigError(`Environment already exists: ${input.repository} ${input.environment}`);
@@ -233,6 +248,7 @@ export function addEnvironment(input: UpsertEnvironmentInput): RepoMutationResul
   const issues = validateRepoDraft(repoYaml);
   throwOnDraftErrors(issues);
   const filePath = writeRepoFile(input.repository, repoYaml);
+  await maybeTriggerProxyRebuild();
   return {
     repository: input.repository,
     environment: input.environment,
@@ -241,7 +257,7 @@ export function addEnvironment(input: UpsertEnvironmentInput): RepoMutationResul
   };
 }
 
-export function editEnvironment(input: UpsertEnvironmentInput): RepoMutationResult {
+export async function editEnvironment(input: UpsertEnvironmentInput): Promise<RepoMutationResult> {
   const current = readRepoFile(input.repository);
   const currentEnvironment = current.environments[input.environment];
   if (!currentEnvironment) {
@@ -259,6 +275,7 @@ export function editEnvironment(input: UpsertEnvironmentInput): RepoMutationResu
   const issues = validateRepoDraft(repoYaml);
   throwOnDraftErrors(issues);
   const filePath = writeRepoFile(input.repository, repoYaml);
+  await maybeTriggerProxyRebuild();
   return {
     repository: input.repository,
     environment: input.environment,
@@ -267,10 +284,10 @@ export function editEnvironment(input: UpsertEnvironmentInput): RepoMutationResu
   };
 }
 
-export function ensureRepositoryEnvironment(
+export async function ensureRepositoryEnvironment(
   repository: string,
   environment: string,
-): RepoMutationResult | null {
+): Promise<RepoMutationResult | null> {
   const existing = findRepoFile(repository);
   if (!existing) {
     return addRepository({
@@ -289,7 +306,7 @@ export function ensureRepositoryEnvironment(
   return null;
 }
 
-export function syncEnvironmentWithStack(input: {
+export async function syncEnvironmentWithStack(input: {
   repository: string;
   environment: string;
   composeFile: string;
@@ -297,7 +314,7 @@ export function syncEnvironmentWithStack(input: {
   imageName: string;
   services: string[];
   healthcheckUrl?: string;
-}): RepoMutationResult {
+}): Promise<RepoMutationResult> {
   return editEnvironment({
     repository: input.repository,
     environment: input.environment,
@@ -317,10 +334,10 @@ export interface RemoveRepositoryResult {
   stackRemoved: boolean;
 }
 
-export function removeRepository(
+export async function removeRepository(
   repository: string,
   opts: { removeStack?: boolean } = {},
-): RemoveRepositoryResult {
+): Promise<RemoveRepositoryResult> {
   const file = findRepoFile(repository);
   if (!file) {
     throw new ConfigError(`Repository not found: ${repository}`);
@@ -357,6 +374,8 @@ export function removeRepository(
       stackRemoved = true;
     }
   }
+
+  await maybeTriggerProxyRebuild();
 
   return {
     repository,

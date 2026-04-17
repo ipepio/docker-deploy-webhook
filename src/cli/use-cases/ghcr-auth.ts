@@ -24,11 +24,10 @@ export interface GhcrLoginResult {
 
 export function checkImagePull(imageName: string): PullCheckResult {
   // Try to pull manifest only (faster than full pull)
-  const result = spawnSync(
-    'docker',
-    ['manifest', 'inspect', `${imageName}:latest`],
-    { encoding: 'utf8', timeout: 15000 },
-  );
+  const result = spawnSync('docker', ['manifest', 'inspect', `${imageName}:latest`], {
+    encoding: 'utf8',
+    timeout: 15000,
+  });
 
   if (result.status === 0) {
     return { ok: true };
@@ -81,24 +80,16 @@ export async function runGhcrLoginWizard(
     '  Create one at: https://github.com/settings/tokens/new?scopes=read:packages\n\n',
   );
 
-  const username = await resolveRequiredString(
-    defaultUsername,
-    `GitHub username`,
-    defaultUsername,
-  );
+  const username = await resolveRequiredString(defaultUsername, `GitHub username`, defaultUsername);
 
   const token = await resolveRequiredString(undefined, 'GitHub token (input hidden)');
 
   // docker login
-  const loginResult = spawnSync(
-    'docker',
-    ['login', registry, '-u', username, '--password-stdin'],
-    {
-      input: token,
-      encoding: 'utf8',
-      timeout: 15000,
-    },
-  );
+  const loginResult = spawnSync('docker', ['login', registry, '-u', username, '--password-stdin'], {
+    input: token,
+    encoding: 'utf8',
+    timeout: 15000,
+  });
 
   if (loginResult.status !== 0) {
     const errMsg = (loginResult.stderr ?? loginResult.stdout ?? '').trim();

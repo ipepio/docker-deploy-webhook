@@ -69,8 +69,7 @@ function checkWebhook(port = 8080): StatusResult['webhook'] {
       const d = Math.floor(uptimeSeconds / 86400);
       const h = Math.floor((uptimeSeconds % 86400) / 3600);
       const m = Math.floor((uptimeSeconds % 3600) / 60);
-      uptime =
-        d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+      uptime = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
     }
 
     return { ok: true, uptime };
@@ -131,9 +130,7 @@ function getRepos(): StatusResult['repos'] {
     return { count: 0, names: [] };
   }
 
-  const files = readdirSync(reposConfigPath).filter((f) =>
-    ['.yml', '.yaml'].includes(extname(f)),
-  );
+  const files = readdirSync(reposConfigPath).filter((f) => ['.yml', '.yaml'].includes(extname(f)));
 
   const names = files.map((f) => f.replace(/\.ya?ml$/, '').replace(/--/g, '/'));
   return { count: names.length, names };
@@ -208,7 +205,9 @@ export function formatStatus(status: StatusResult): string {
   lines.push(`  Redis:   ${redisLine}`);
   lines.push(`  Worker:  ${workerLine}`);
   lines.push(`  Docker:  ${dockerLine}`);
-  lines.push(`  Repos:   ${status.repos.count} configured${status.repos.names.length > 0 ? ` (${status.repos.names.join(', ')})` : ''}`);
+  lines.push(
+    `  Repos:   ${status.repos.count} configured${status.repos.names.length > 0 ? ` (${status.repos.names.join(', ')})` : ''}`,
+  );
   lines.push('');
 
   return lines.join('\n');

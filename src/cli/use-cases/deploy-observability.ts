@@ -145,7 +145,11 @@ export async function runRollback(opts: RollbackOptions): Promise<RollbackResult
 
   const repoConfig = getRepoConfig(opts.repository);
   if (!repoConfig || !repoConfig.environments[environment]) {
-    throw new HttpError(404, 'repository_not_found', `Repository or environment not found: ${opts.repository}/${environment}`);
+    throw new HttpError(
+      404,
+      'repository_not_found',
+      `Repository or environment not found: ${opts.repository}/${environment}`,
+    );
   }
 
   const state = readRollbackState(opts.repository, environment);

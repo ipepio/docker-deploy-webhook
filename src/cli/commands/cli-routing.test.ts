@@ -3,8 +3,12 @@ import { createHarnessWorkspace, addRepoFixture, runCli } from '../../test-utils
 describe('CLI routing integration tests (F11)', () => {
   let workspace: ReturnType<typeof createHarnessWorkspace>;
 
-  beforeAll(() => { workspace = createHarnessWorkspace(); });
-  afterAll(() => { workspace.cleanup(); });
+  beforeAll(() => {
+    workspace = createHarnessWorkspace();
+  });
+  afterAll(() => {
+    workspace.cleanup();
+  });
 
   // ── F11.A1 — Command dispatch ──────────────────────────────────────────────
 
@@ -54,7 +58,10 @@ describe('CLI routing integration tests (F11)', () => {
 
   it('repo show --json returns stable keys', () => {
     addRepoFixture(workspace, 'acme/json-contract-test');
-    const result = runCli(['repo', 'show', '--repository', 'acme/json-contract-test', '--json'], workspace);
+    const result = runCli(
+      ['repo', 'show', '--repository', 'acme/json-contract-test', '--json'],
+      workspace,
+    );
     expect(result.exitCode).toBe(0);
     const data = JSON.parse(result.stdout) as Record<string, unknown>;
     expect(typeof data.repository).toBe('string');

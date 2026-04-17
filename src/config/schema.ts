@@ -15,6 +15,14 @@ const NotificationEmailYamlSchema = z.object({
   recipients: z.array(nonEmptyString).default([]),
 });
 
+const ServerProxyYamlSchema = z.object({
+  enabled: z.boolean().default(false),
+  ports_authorized: z.boolean().default(false),
+  fallback_ip: z.string().trim().optional(),
+  acme_email: z.string().trim().optional(),
+  next_port: z.number().int().min(8100).max(65535).default(8100),
+});
+
 export const ServerYamlSchema = z.object({
   server: z.object({
     id: nonEmptyString,
@@ -81,6 +89,11 @@ export const ServerYamlSchema = z.object({
           recipients: [],
         },
       }),
+    proxy: ServerProxyYamlSchema.default({
+      enabled: false,
+      ports_authorized: false,
+      next_port: 8100,
+    }),
   }),
 });
 
@@ -117,6 +130,18 @@ const RepoNotificationsYamlSchema = z.object({
     .optional(),
 });
 
+const ProxySslMode = z.enum(['off', 'self-signed', 'auto']);
+export type ProxySslMode = z.infer<typeof ProxySslMode>;
+
+const EnvironmentProxyYamlSchema = z.object({
+  enabled: z.boolean().default(false),
+  domain: z.string().trim().optional(),
+  container_port: z.number().int().min(1).max(65535).default(3000),
+  ssl: ProxySslMode.default('off'),
+  assigned_port: z.number().int().min(1).max(65535).optional(),
+  upstream: z.string().trim().optional(),
+});
+
 const EnvironmentYamlSchema = z.object({
   image_name: nonEmptyString,
   compose_file: nonEmptyString,
@@ -128,6 +153,7 @@ const EnvironmentYamlSchema = z.object({
   healthcheck: HealthcheckYamlSchema.optional(),
   timeouts: TimeoutsYamlSchema.optional(),
   notifications: RepoNotificationsYamlSchema.optional(),
+  proxy: EnvironmentProxyYamlSchema.optional(),
 });
 
 export const RepoYamlSchema = z.object({
@@ -169,6 +195,23 @@ export interface ServerNotificationConfig {
   };
 }
 
+export interface ServerProxyConfig {
+  enabled: boolean;
+  portsAuthorized: boolean;
+  fallbackIp?: string;
+  acmeEmail?: string;
+  nextPort: number;
+}
+
+export interface EnvironmentProxyConfig {
+  enabled: boolean;
+  domain?: string;
+  containerPort: number;
+  ssl: ProxySslMode;
+  assignedPort?: number;
+  upstream?: string;
+}
+
 export interface ServerConfig {
   id: string;
   publicUrl?: string;
@@ -188,6 +231,7 @@ export interface ServerConfig {
   };
   defaults: DeployDefaults;
   notifications: ServerNotificationConfig;
+  proxy: ServerProxyConfig;
 }
 
 export interface EnvironmentConfig {
@@ -213,6 +257,7 @@ export interface EnvironmentConfig {
       recipients: string[];
     };
   };
+  proxy?: EnvironmentProxyConfig;
 }
 
 export interface RepoConfig {

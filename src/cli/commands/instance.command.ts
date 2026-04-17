@@ -18,6 +18,10 @@ export async function handleInit(parsed: ParsedCommandArgs): Promise<number> {
 export async function handleStatus(parsed: ParsedCommandArgs): Promise<number> {
   const useJson = getBooleanFlag(parsed, 'json');
   const status = runStatus();
-  if (useJson) { printJson(status); } else { process.stdout.write(formatStatus(status)); }
+  if (useJson) {
+    printJson(status);
+  } else {
+    process.stdout.write(formatStatus(status));
+  }
   return 0;
 }
