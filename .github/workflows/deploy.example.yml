@@ -47,10 +47,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Prepare webhook payload
-        id: payload
+      - name: Call deploy webhook
         run: |
-          PAYLOAD=$(jq -n \
+          PAYLOAD=$(jq -cn \
             --arg repo "${{ github.repository }}" \
             --arg env "production" \
             --arg tag "${{ needs.build-and-push.outputs.image_tag }}" \
@@ -59,25 +58,13 @@ jobs:
             --arg ref "${{ github.ref_name }}" \
             --argjson run_id "${{ github.run_id }}" \
             '{repository: $repo, environment: $env, tag: $tag, sha: $sha, workflow: $workflow, ref_name: $ref, run_id: $run_id}')
-          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
-
-      - name: Calculate HMAC signature
-        id: signature
-        run: |
           TIMESTAMP=$(date +%s)
-          PAYLOAD='${{ steps.payload.outputs.payload }}'
-          MESSAGE="${TIMESTAMP}.${PAYLOAD}"
-          SIGNATURE="sha256=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "${{ secrets.DEPLOY_HMAC_SECRET }}" | awk '{print $2}')"
-          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
-          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
-
-      - name: Call deploy webhook
-        run: |
+          SIGNATURE="sha256=$(printf '%s.%s' "$TIMESTAMP" "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.DEPLOY_HMAC_SECRET }}" | awk '{print $2}')"
           curl --fail --silent --show-error \
             --request POST \
             --url "${{ secrets.DEPLOY_WEBHOOK_URL }}/deploy" \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer ${{ secrets.DEPLOY_BEARER_TOKEN }}" \
-            --header "X-Deploy-Timestamp: ${{ steps.signature.outputs.timestamp }}" \
-            --header "X-Deploy-Signature: ${{ steps.signature.outputs.signature }}" \
-            --data '${{ steps.payload.outputs.payload }}'
+            --header "X-Deploy-Timestamp: $TIMESTAMP" \
+            --header "X-Deploy-Signature: $SIGNATURE" \
+            --data "$PAYLOAD"
