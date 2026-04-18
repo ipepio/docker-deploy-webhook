@@ -504,7 +504,10 @@ configure_docker_access() {
 
   if [[ "$answer" =~ ^[Yy]$ ]]; then
     usermod -aG docker "$target_user"
+    chown -R "$target_user:$target_user" "${INSTALL_DIR}"
+    chown -R "$target_user:$target_user" "${STACKS_DIR}"
     _info "User '$target_user' added to docker group"
+    _info "Ownership of ${INSTALL_DIR} and ${STACKS_DIR} set to '$target_user'"
     _warn "Log out and back in (or run 'newgrp docker') for it to take effect"
   fi
 }
