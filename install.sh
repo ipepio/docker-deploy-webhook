@@ -72,6 +72,11 @@ check_prerequisites() {
     missing+=("jq")
   fi
 
+  # Check Node.js >= 20 (for native CLI)
+  if ! command -v node &>/dev/null; then
+    missing+=("nodejs")
+  fi
+
   if [[ ${#missing[@]} -gt 0 ]]; then
     _warn "Missing prerequisites: ${missing[*]}"
     echo ""
@@ -94,6 +99,11 @@ check_prerequisites() {
             _info "Installing docker-compose-plugin..."
             apt-get update -qq && apt-get install -y -qq docker-compose-plugin
           fi
+          ;;
+        nodejs)
+          _info "Installing Node.js 20 via NodeSource..."
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y -qq nodejs
           ;;
         *)
           _info "Installing ${pkg}..."
@@ -316,7 +326,33 @@ print_summary() {
 }
 
 # ─────────────────────────────────────────────
-# Task F07 — Install depctl wrapper on host PATH
+# Download CLI bundle from GitHub release
+# ─────────────────────────────────────────────
+download_cli() {
+  _section "Downloading CLI"
+
+  local cli_dest="${INSTALL_DIR}/depctl-cli.cjs"
+  local download_url
+
+  if [[ "$DEPCTL_VERSION" == "latest" ]]; then
+    download_url="https://github.com/ipepio/depctl/releases/latest/download/depctl-cli.cjs"
+  else
+    download_url="https://github.com/ipepio/depctl/releases/download/v${DEPCTL_VERSION}/depctl-cli.cjs"
+  fi
+
+  _info "Downloading CLI from release..."
+  if ! curl -sSfL "$download_url" -o "${cli_dest}.tmp"; then
+    _error "Failed to download CLI bundle from: ${download_url}"
+    _error "Make sure a release exists with the depctl-cli.cjs asset."
+    rm -f "${cli_dest}.tmp"
+    exit 1
+  fi
+  mv "${cli_dest}.tmp" "$cli_dest"
+  _info "CLI downloaded ✓"
+}
+
+# ─────────────────────────────────────────────
+# Install depctl wrapper on host PATH
 # ─────────────────────────────────────────────
 install_depctl_wrapper() {
   _section "Installing depctl on PATH"
@@ -325,9 +361,14 @@ install_depctl_wrapper() {
 
   cat > "$wrapper_path" <<WRAPPER
 #!/usr/bin/env bash
-# depctl — wrapper installed by install.sh
-# Routes to the admin container in the correct project directory
-exec docker compose --project-directory "${INSTALL_DIR}" --profile admin run --rm --no-deps admin "\$@"
+# depctl — native CLI wrapper
+export REDIS_URL="redis://127.0.0.1:6379"
+export CONFIG_PATH="${INSTALL_DIR}/config/server.yml"
+export REPOS_CONFIG_PATH="${INSTALL_DIR}/config/repos"
+export SERVICE_ENV_PATH="${INSTALL_DIR}/.env"
+export STATE_DIR="${INSTALL_DIR}/data/state"
+export STACKS_ROOT="${STACKS_DIR}"
+exec node "${INSTALL_DIR}/depctl-cli.cjs" admin "\$@"
 WRAPPER
 
   chmod +x "$wrapper_path"
@@ -373,7 +414,6 @@ upgrade_existing() {
   _info "Downloading latest artifacts..."
   local upgrade_files=(
     "docker-compose.yml"
-    "Dockerfile"
     ".env.example"
     "config/server.example.yml"
   )
@@ -394,10 +434,13 @@ upgrade_existing() {
   done
   _info "Artifacts updated ✓"
 
-  # 5. Preserve user config: .env and server.yml are NOT overwritten
+  # 5. Download latest CLI bundle
+  download_cli
+
+  # 6. Preserve user config: .env and server.yml are NOT overwritten
   _info "User config preserved (.env, config/server.yml, config/repos/*)"
 
-  # 6. Rebuild and restart services
+  # 7. Rebuild and restart services
   _info "Rebuilding and restarting services..."
   cd "${INSTALL_DIR}"
   docker compose pull webhook
@@ -485,6 +528,7 @@ main() {
   check_prerequisites
   create_directories
   download_artifacts
+  download_cli
   generate_admin_tokens
   start_services
   install_depctl_wrapper

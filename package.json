@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/index.ts",
     "build": "tsc",
+    "build:cli": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/depctl-cli.cjs --format=cjs --external:readline/promises",
     "start": "node dist/index.js webhook",
     "start:webhook": "node dist/index.js webhook",
     "start:admin": "node dist/index.js admin",
@@ -41,6 +42,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.18.2",
     "@typescript-eslint/parser": "^8.18.2",
+    "esbuild": "^0.28.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",

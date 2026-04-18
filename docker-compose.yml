@@ -17,25 +17,6 @@ services:
       redis:
         condition: service_healthy
 
-  admin:
-    image: ghcr.io/ipepio/depctl:${DEPCTL_VERSION:-latest}
-    entrypoint: ['node', 'dist/index.js', 'admin']
-    command: ['help']
-    profiles: ['admin']
-    restart: 'no'
-    ports: []
-    env_file:
-      - .env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./config:/app/config
-      - ./data:/app/data
-      - ${STACKS_ROOT:-/opt/stacks}:/opt/stacks
-      - ./.env:/app/.env
-    depends_on:
-      redis:
-        condition: service_healthy
-
   caddy:
     image: caddy:2-alpine
     container_name: depctl-caddy
@@ -61,6 +42,8 @@ services:
     container_name: docker-deploy-webhook-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
+    ports:
+      - '127.0.0.1:6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
