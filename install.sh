@@ -147,7 +147,6 @@ download_artifacts() {
 
   local files=(
     "docker-compose.yml"
-    "Dockerfile"
     ".env.example"
     "config/server.example.yml"
   )
@@ -236,8 +235,9 @@ start_services() {
 
   cd "${INSTALL_DIR}"
 
-  # Build + start webhook and redis
-  docker compose up -d --build webhook redis
+  # Pull and start webhook and redis
+  docker compose pull webhook
+  docker compose up -d webhook redis
 
   # Wait for redis healthcheck (up to 30s)
   _info "Waiting for Redis to be healthy..."
@@ -400,7 +400,7 @@ upgrade_existing() {
   # 6. Rebuild and restart services
   _info "Rebuilding and restarting services..."
   cd "${INSTALL_DIR}"
-  docker compose build --no-cache webhook
+  docker compose pull webhook
   docker compose up -d webhook redis
 
   # 7. Health check

@@ -1,6 +1,6 @@
 services:
   webhook:
-    build: .
+    image: ghcr.io/ipepio/depctl:${DEPCTL_VERSION:-latest}
     container_name: docker-deploy-webhook
     command: ['node', 'dist/index.js', 'webhook']
     restart: unless-stopped
@@ -18,7 +18,7 @@ services:
         condition: service_healthy
 
   admin:
-    build: .
+    image: ghcr.io/ipepio/depctl:${DEPCTL_VERSION:-latest}
     entrypoint: ['node', 'dist/index.js', 'admin']
     command: ['help']
     profiles: ['admin']

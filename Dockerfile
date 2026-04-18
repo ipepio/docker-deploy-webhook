@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json jest.config.js .eslintrc.js .prettierrc ./
+COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
@@ -19,7 +19,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY README.md AGENTS.md ./
 
 ENV NODE_ENV=production
 EXPOSE 8080
