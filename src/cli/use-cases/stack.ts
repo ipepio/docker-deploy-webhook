@@ -37,6 +37,10 @@ export interface StackServiceInput {
   targetService?: string;
   targetPort?: number;
   appendOnly?: boolean;
+  image?: string;
+  deployable?: boolean;
+  volumes?: string[];
+  envVars?: Record<string, string>;
 }
 
 function getComposePath(repository: string): string {
@@ -56,7 +60,8 @@ function createManagedService(
   existing?: ManagedStackService,
 ): ManagedStackService {
   const serviceName = input.serviceName ?? existing?.serviceName ?? input.kind;
-  const deployable = input.kind === 'app' || input.kind === 'worker';
+  const deployable =
+    input.deployable ?? (input.kind === 'app' || input.kind === 'worker');
   const passwordEnvKey =
     input.kind === 'postgres' || input.kind === 'redis'
       ? (existing?.passwordEnvKey ??
@@ -80,6 +85,9 @@ function createManagedService(
     appendOnly: input.appendOnly ?? existing?.appendOnly,
     targetService: input.targetService ?? existing?.targetService,
     targetPort: input.targetPort ?? existing?.targetPort,
+    image: input.image ?? existing?.image,
+    volumes: input.volumes ?? existing?.volumes,
+    environment: input.envVars ?? existing?.environment,
   };
 }
 
@@ -221,4 +229,22 @@ export function editManagedStackService(
 
 export function readStackMetadata(repository: string): ManagedStackMetadata {
   return readManagedMetadata(repository);
+}
+
+export function removeStackService(
+  repository: string,
+  serviceName: string,
+): StackMutationResult {
+  const metadata = readManagedMetadata(repository);
+  const exists = metadata.services.some((s) => s.serviceName === serviceName);
+  if (!exists) {
+    throw new ConfigError(`Service not found in stack: ${serviceName}`);
+  }
+
+  const nextMetadata: ManagedStackMetadata = {
+    ...metadata,
+    services: metadata.services.filter((s) => s.serviceName !== serviceName),
+  };
+
+  return writeManagedStack(nextMetadata);
 }

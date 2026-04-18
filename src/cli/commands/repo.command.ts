@@ -1,6 +1,6 @@
 import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag, getListFlag } from '../argv';
-import { printJson, resolveRequiredString, resolveOptionalString, resolveList } from '../io';
+import { printJson, resolveRequiredString, resolveOptionalString, resolveList, confirm } from '../io';
 import { selectFromList, type SelectOption } from '../select';
 import {
   addEnvironment,
@@ -9,6 +9,8 @@ import {
   showRepository,
   editRepository,
 } from '../use-cases/repo-config';
+import { addManagedStackService, readStackMetadata, removeStackService } from '../use-cases/stack';
+import { resolveStackServiceInput, SUPPORTED_SERVICE_KINDS } from '../stack/input';
 import {
   generateRepoSecrets,
   showRepoSecrets,
@@ -113,17 +115,29 @@ async function interactiveRepoEdit(repository: string): Promise<number> {
 
   const env = repoYaml.environments[environment];
 
+  let stackServices: string[] = [];
+  try {
+    const meta = readStackMetadata(repository);
+    stackServices = meta.services.map((s) => `${s.serviceName} (${s.kind})`);
+  } catch { /* no stack yet */ }
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const fields: SelectOption[] = [
       { label: 'Image name', value: 'imageName', detail: env.image_name },
-      { label: 'Services', value: 'services', detail: env.services.join(', ') },
+      { label: 'Deployable services', value: 'services', detail: env.services.join(', ') },
       { label: 'Allowed branches', value: 'branches', detail: env.allowed_branches?.join(', ') ?? '' },
       { label: 'Allowed tag pattern', value: 'tagPattern', detail: env.allowed_tag_pattern ?? '' },
       { label: 'Allowed workflows', value: 'workflows', detail: env.allowed_workflows?.join(', ') ?? '' },
       { label: 'Healthcheck URL', value: 'healthcheck', detail: env.healthcheck?.url ?? 'disabled' },
-      { label: 'Done', value: '__done__', detail: 'save and exit' },
+      { label: 'Add stack service', value: 'addService', detail: 'postgres, redis, custom...' },
     ];
+
+    if (stackServices.length > 0) {
+      fields.push({ label: 'Remove stack service', value: 'removeService', detail: stackServices.join(', ') });
+    }
+
+    fields.push({ label: 'Done', value: '__done__', detail: 'save and exit' });
 
     const choice = await selectFromList(fields, `Edit ${repository} [${environment}]`);
     if (choice === '__exit__' || choice === '__done__') break;
@@ -135,7 +149,7 @@ async function interactiveRepoEdit(repository: string): Promise<number> {
         break;
       }
       case 'services': {
-        const val = await resolveList(undefined, 'Services', env.services);
+        const val = await resolveList(undefined, 'Deployable services', env.services);
         if (val.length > 0) env.services = val;
         break;
       }
@@ -160,6 +174,52 @@ async function interactiveRepoEdit(repository: string): Promise<number> {
           env.healthcheck = { ...env.healthcheck, enabled: true, url: val };
         } else {
           env.healthcheck = { enabled: false };
+        }
+        break;
+      }
+      case 'addService': {
+        const kindOptions: SelectOption[] = SUPPORTED_SERVICE_KINDS.map((k) => ({
+          label: k,
+          value: k,
+          detail: k === 'custom' ? 'any Docker image' : undefined,
+        }));
+        const kind = await selectFromList(kindOptions, 'Service kind');
+        if (kind === '__exit__') break;
+
+        const input = await resolveStackServiceInput({
+          repository,
+          environment,
+          kind: kind as typeof SUPPORTED_SERVICE_KINDS[number],
+        });
+
+        try {
+          const result = addManagedStackService(input);
+          stackServices = result.services.map((s) => s);
+          process.stdout.write(`Service added ✓\n`);
+        } catch (e) {
+          process.stderr.write(`${String(e)}\n`);
+        }
+        break;
+      }
+      case 'removeService': {
+        try {
+          const meta = readStackMetadata(repository);
+          const svcOptions: SelectOption[] = meta.services.map((s) => ({
+            label: s.serviceName,
+            value: s.serviceName,
+            detail: s.kind,
+          }));
+          const svcName = await selectFromList(svcOptions, 'Remove service');
+          if (svcName === '__exit__') break;
+
+          const ok = await confirm(`Remove '${svcName}' from stack?`, false);
+          if (ok) {
+            const result = removeStackService(repository, svcName);
+            stackServices = result.services.map((s) => s);
+            process.stdout.write(`Service '${svcName}' removed ✓\n`);
+          }
+        } catch (e) {
+          process.stderr.write(`${String(e)}\n`);
         }
         break;
       }

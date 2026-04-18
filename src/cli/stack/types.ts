@@ -1,4 +1,4 @@
-export type SupportedServiceKind = 'app' | 'worker' | 'postgres' | 'redis' | 'nginx';
+export type SupportedServiceKind = 'app' | 'worker' | 'postgres' | 'redis' | 'nginx' | 'custom';
 
 export interface ManagedStackService {
   kind: SupportedServiceKind;
@@ -14,6 +14,9 @@ export interface ManagedStackService {
   appendOnly?: boolean;
   targetService?: string;
   targetPort?: number;
+  image?: string;
+  volumes?: string[];
+  environment?: Record<string, string>;
 }
 
 export interface ManagedStackMetadata {

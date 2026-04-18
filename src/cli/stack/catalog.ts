@@ -173,6 +173,38 @@ function buildNginxService(service: ManagedStackService): {
   };
 }
 
+function buildCustomService(service: ManagedStackService): {
+  compose: Record<string, unknown>;
+  volumeName?: string;
+} {
+  const compose: Record<string, unknown> = {
+    image: service.image,
+    restart: 'unless-stopped',
+  };
+
+  if (service.port) {
+    const containerPort = service.internalPort ?? service.port;
+    compose.ports = [`${service.port}:${containerPort}`];
+  }
+
+  if (service.command) {
+    compose.command = service.command.split(' ');
+  }
+
+  if (service.environment && Object.keys(service.environment).length > 0) {
+    compose.environment = service.environment;
+  }
+
+  let volumeName: string | undefined;
+  if (service.volumes && service.volumes.length > 0) {
+    compose.volumes = service.volumes;
+    const match = service.volumes[0].match(/^([^:]+):/);
+    if (match) volumeName = match[1];
+  }
+
+  return { compose, volumeName };
+}
+
 export function buildStackArtifacts(
   metadata: ManagedStackMetadata,
   existingEnvEntries: Record<string, string> = {},
@@ -222,6 +254,17 @@ export function buildStackArtifacts(
           relativePath: nginx.configPath,
           content: nginx.configContent,
         });
+        break;
+      }
+      case 'custom': {
+        const custom = buildCustomService(service);
+        services[service.serviceName] = custom.compose;
+        if (custom.volumeName) {
+          volumes[custom.volumeName] = {};
+        }
+        if (service.deployable) {
+          deployableServices.push(service.serviceName);
+        }
         break;
       }
     }

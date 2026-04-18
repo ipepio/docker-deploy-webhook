@@ -9,6 +9,7 @@ export const SUPPORTED_SERVICE_KINDS: SupportedServiceKind[] = [
   'postgres',
   'redis',
   'nginx',
+  'custom',
 ];
 
 function isSupportedServiceKind(value: string): value is SupportedServiceKind {
@@ -153,32 +154,101 @@ export async function resolveStackServiceInput(options: {
     };
   }
 
+  if (kind === 'nginx') {
+    const port = parseNumber(
+      await resolveOptionalString(
+        overrides?.port !== undefined ? String(overrides.port) : undefined,
+        'Nginx public port',
+        defaults?.port !== undefined ? String(defaults.port) : '80',
+      ),
+      'Nginx public port',
+    );
+    const targetService = await resolveOptionalString(
+      overrides?.targetService,
+      'Target service',
+      defaults?.targetService ?? 'app',
+    );
+    const targetPort = parseNumber(
+      await resolveOptionalString(
+        overrides?.targetPort !== undefined ? String(overrides.targetPort) : undefined,
+        'Target port',
+        defaults?.targetPort !== undefined ? String(defaults.targetPort) : '3000',
+      ),
+      'Target port',
+    );
+
+    return {
+      ...common,
+      port,
+      targetService,
+      targetPort,
+    };
+  }
+
+  // custom kind
+  const image = await resolveRequiredString(
+    overrides?.image,
+    'Docker image (e.g. mongo:7, meilisearch:latest)',
+    defaults?.image,
+  );
+  const deployable = await confirm(
+    'Is this a deployable service (uses your app image)',
+    defaults?.deployable ?? false,
+  );
   const port = parseNumber(
     await resolveOptionalString(
       overrides?.port !== undefined ? String(overrides.port) : undefined,
-      'Nginx public port',
-      defaults?.port !== undefined ? String(defaults.port) : '80',
+      'Public port (blank = none)',
+      defaults?.port !== undefined ? String(defaults.port) : undefined,
     ),
-    'Nginx public port',
+    'Public port',
   );
-  const targetService = await resolveOptionalString(
-    overrides?.targetService,
-    'Target service',
-    defaults?.targetService ?? 'app',
+  const internalPort = port
+    ? parseNumber(
+        await resolveOptionalString(
+          overrides?.internalPort !== undefined ? String(overrides.internalPort) : undefined,
+          'Container port',
+          defaults?.internalPort !== undefined ? String(defaults.internalPort) : String(port),
+        ),
+        'Container port',
+      )
+    : undefined;
+  const volumePath = await resolveOptionalString(
+    undefined,
+    'Volume mount path inside container (blank = none)',
+    defaults?.volumes?.[0]?.split(':')[1],
   );
-  const targetPort = parseNumber(
-    await resolveOptionalString(
-      overrides?.targetPort !== undefined ? String(overrides.targetPort) : undefined,
-      'Target port',
-      defaults?.targetPort !== undefined ? String(defaults.targetPort) : '3000',
-    ),
-    'Target port',
+  const command = await resolveOptionalString(
+    overrides?.command,
+    'Command (blank = image default)',
+    defaults?.command,
   );
+  const envInput = await resolveOptionalString(
+    undefined,
+    'Environment variables (KEY=val,KEY2=val2, blank = none)',
+  );
+
+  const volumes = volumePath ? [`${common.serviceName}_data:${volumePath}`] : undefined;
+  const envVars: Record<string, string> = {};
+  if (envInput) {
+    for (const pair of envInput.split(',')) {
+      const eqIndex = pair.indexOf('=');
+      if (eqIndex > 0) {
+        const k = pair.slice(0, eqIndex).trim();
+        const v = pair.slice(eqIndex + 1).trim();
+        if (k) envVars[k] = v;
+      }
+    }
+  }
 
   return {
     ...common,
+    image,
+    deployable,
     port,
-    targetService,
-    targetPort,
+    internalPort,
+    command,
+    volumes,
+    envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
   };
 }
