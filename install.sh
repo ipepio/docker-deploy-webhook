@@ -73,13 +73,42 @@ check_prerequisites() {
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
-    _error "Missing prerequisites: ${missing[*]}"
+    _warn "Missing prerequisites: ${missing[*]}"
     echo ""
-    echo "Install them with:"
-    echo "  apt-get install -y ${missing[*]}"
-    echo ""
-    echo "For Docker, see: https://docs.docker.com/engine/install/"
-    exit 1
+    read -rp "  Install them automatically? [Y/n] " answer </dev/tty
+    answer="${answer:-Y}"
+
+    if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+      _error "Cannot continue without: ${missing[*]}"
+      exit 1
+    fi
+
+    for pkg in "${missing[@]}"; do
+      case "$pkg" in
+        docker|docker-compose-plugin)
+          if [[ "$pkg" == "docker" ]]; then
+            _info "Installing Docker via get.docker.com..."
+            curl -fsSL https://get.docker.com | sh
+            systemctl enable --now docker
+          elif [[ "$pkg" == "docker-compose-plugin" ]]; then
+            _info "Installing docker-compose-plugin..."
+            apt-get update -qq && apt-get install -y -qq docker-compose-plugin
+          fi
+          ;;
+        *)
+          _info "Installing ${pkg}..."
+          apt-get update -qq && apt-get install -y -qq "$pkg"
+          ;;
+      esac
+    done
+
+    # Re-verify after install
+    if ! docker info &>/dev/null 2>&1; then
+      _error "Docker installation failed or daemon is not running."
+      exit 1
+    fi
+
+    _info "Prerequisites installed ✓"
   fi
 
   _info "All prerequisites satisfied ✓"
