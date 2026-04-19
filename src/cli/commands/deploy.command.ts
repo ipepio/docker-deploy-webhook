@@ -1,7 +1,7 @@
 import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag } from '../argv';
 import { printJson, resolveRequiredString } from '../io';
-import { resolveRepository } from '../resolve-repo';
+import { resolveRepository, resolveEnvironment } from '../resolve-repo';
 import { withLocalRuntime } from '../runtime';
 import { manualDeploy, redeployLastSuccessful, retryJob } from '../use-cases/deploy-actions';
 import {
@@ -16,11 +16,7 @@ import {
 // ── deploy manual ───────────────────────────────────────────────────────────
 export async function handleDeployManual(parsed: ParsedCommandArgs): Promise<number> {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
-    getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
-  );
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
   const tag = await resolveRequiredString(getStringFlag(parsed, 'tag'), 'Tag');
   const result = await withLocalRuntime(
     () => manualDeploy({ repository, environment, tag, force: getBooleanFlag(parsed, 'force') }),
@@ -33,11 +29,7 @@ export async function handleDeployManual(parsed: ParsedCommandArgs): Promise<num
 // ── deploy redeploy-last-successful ─────────────────────────────────────────
 export async function handleRedeployLast(parsed: ParsedCommandArgs): Promise<number> {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
-    getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
-  );
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
   const result = await withLocalRuntime(
     () =>
       redeployLastSuccessful({ repository, environment, force: getBooleanFlag(parsed, 'force') }),

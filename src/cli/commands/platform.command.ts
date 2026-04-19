@@ -1,7 +1,7 @@
 import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag, getListFlag } from '../argv';
 import { printJson, resolveRequiredString, resolveList } from '../io';
-import { resolveRepository } from '../resolve-repo';
+import { resolveRepository, resolveEnvironment } from '../resolve-repo';
 import { validateRuntimeConfig } from '../../config/runtime-validator';
 import { parseSupportedServiceKinds, resolveStackServiceInput } from '../stack/input';
 import {
@@ -74,11 +74,7 @@ export async function handleWorkflowGenerate(parsed: ParsedCommandArgs): Promise
 // ── stack init ────────────────────────────────────────────────────────────────
 export async function handleStackInit(parsed: ParsedCommandArgs): Promise<number> {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
-    getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
-  );
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
   const serviceKinds = parseSupportedServiceKinds(
     await resolveList(getListFlag(parsed, 'services'), 'Stack services', ['app']),
   );
@@ -107,11 +103,7 @@ export async function handleStackShow(parsed: ParsedCommandArgs): Promise<number
 // ── stack service add ─────────────────────────────────────────────────────────
 export async function handleStackServiceAdd(parsed: ParsedCommandArgs): Promise<number> {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
-    getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
-  );
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
   const kind = parseSupportedServiceKinds([
     await resolveRequiredString(getStringFlag(parsed, 'kind'), 'Service kind'),
   ])[0];
@@ -128,11 +120,7 @@ export async function handleStackServiceAdd(parsed: ParsedCommandArgs): Promise<
 // ── stack service edit ────────────────────────────────────────────────────────
 export async function handleStackServiceEdit(parsed: ParsedCommandArgs): Promise<number> {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
-    getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
-  );
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
   const serviceName = await resolveRequiredString(
     getStringFlag(parsed, 'serviceName'),
     'Service name',

@@ -2,7 +2,7 @@ import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag, getListFlag } from '../argv';
 import { printJson, resolveRequiredString, resolveOptionalString, resolveList, confirm } from '../io';
 import { selectFromList, type SelectOption } from '../select';
-import { resolveRepository } from '../resolve-repo';
+import { resolveRepository, resolveEnvironment } from '../resolve-repo';
 import {
   addEnvironment,
   editEnvironment,
@@ -338,10 +338,9 @@ export async function handleSecretsRotate(parsed: ParsedCommandArgs): Promise<nu
 // ── env add/edit ────────────────────────────────────────────────────────────
 async function resolveEnvArgs(parsed: ParsedCommandArgs) {
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
-  const environment = await resolveRequiredString(
+  const environment = await resolveEnvironment(
+    repository,
     getStringFlag(parsed, 'environment'),
-    'Environment',
-    'production',
   );
   return { repository, environment };
 }

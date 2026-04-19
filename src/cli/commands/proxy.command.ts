@@ -1,7 +1,7 @@
 import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag } from '../argv';
 import { printJson } from '../io';
-import { resolveRepository } from '../resolve-repo';
+import { resolveRepository, resolveEnvironment } from '../resolve-repo';
 import {
   runProxyInit,
   runProxyStatus,
@@ -61,8 +61,10 @@ export async function handleProxyEnable(parsed: ParsedCommandArgs): Promise<numb
   const repository = await resolveRepository(
     parsed.positionals[2] ?? getStringFlag(parsed, 'repository'),
   );
-  const environment =
-    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env') ?? 'production';
+  const environment = await resolveEnvironment(
+    repository,
+    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env'),
+  );
 
   const sslRaw = getStringFlag(parsed, 'ssl') ?? getStringFlag(parsed, 'mode');
   const ssl = (sslRaw as ProxySslMode | undefined) ?? undefined;
@@ -92,8 +94,10 @@ export async function handleProxyDisable(parsed: ParsedCommandArgs): Promise<num
   const repository = await resolveRepository(
     parsed.positionals[2] ?? getStringFlag(parsed, 'repository'),
   );
-  const environment =
-    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env') ?? 'production';
+  const environment = await resolveEnvironment(
+    repository,
+    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env'),
+  );
 
   const result = await runProxyDisable(repository, environment);
 
@@ -110,8 +114,10 @@ export async function handleProxySsl(parsed: ParsedCommandArgs): Promise<number>
   const repository = await resolveRepository(
     parsed.positionals[2] ?? getStringFlag(parsed, 'repository'),
   );
-  const environment =
-    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env') ?? 'production';
+  const environment = await resolveEnvironment(
+    repository,
+    getStringFlag(parsed, 'environment') ?? getStringFlag(parsed, 'env'),
+  );
   const modeRaw = getStringFlag(parsed, 'mode');
 
   if (!modeRaw) {
