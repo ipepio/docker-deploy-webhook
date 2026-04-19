@@ -354,7 +354,22 @@ export async function handleEnvAdd(parsed: ParsedCommandArgs): Promise<number> {
 }
 
 export async function handleEnvEdit(parsed: ParsedCommandArgs): Promise<number> {
-  const { repository, environment } = await resolveEnvArgs(parsed);
+  const hasDirectFlags = getStringFlag(parsed, 'imageName') ||
+    getStringFlag(parsed, 'composeFile') ||
+    getListFlag(parsed, 'services') ||
+    getListFlag(parsed, 'allowedWorkflows') ||
+    getListFlag(parsed, 'allowedBranches') ||
+    getStringFlag(parsed, 'allowedTagPattern') ||
+    getStringFlag(parsed, 'healthcheckUrl') ||
+    getBooleanFlag(parsed, 'disableHealthcheck');
+
+  const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
+
+  if (!hasDirectFlags && process.stdin.isTTY) {
+    return interactiveRepoEdit(repository);
+  }
+
+  const { environment } = await resolveEnvArgs(parsed);
   const result = await editEnvironment({
     repository,
     environment,
