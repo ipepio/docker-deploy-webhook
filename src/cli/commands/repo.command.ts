@@ -1,8 +1,13 @@
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+
 import { type ParsedCommandArgs } from '../argv';
 import { getBooleanFlag, getStringFlag, getListFlag } from '../argv';
 import { printJson, resolveRequiredString, resolveOptionalString, resolveList, confirm } from '../io';
 import { selectFromList, type SelectOption } from '../select';
 import { resolveRepository, resolveEnvironment } from '../resolve-repo';
+import { getStackDirectory } from '../../config/paths';
+import { readEnvFile } from '../../config/service-env';
 import {
   addEnvironment,
   editEnvironment,
@@ -363,36 +368,118 @@ export async function handleEnvAdd(parsed: ParsedCommandArgs): Promise<number> {
 }
 
 export async function handleEnvEdit(parsed: ParsedCommandArgs): Promise<number> {
-  const hasDirectFlags = getStringFlag(parsed, 'imageName') ||
-    getStringFlag(parsed, 'composeFile') ||
-    getListFlag(parsed, 'services') ||
-    getListFlag(parsed, 'allowedWorkflows') ||
-    getListFlag(parsed, 'allowedBranches') ||
-    getStringFlag(parsed, 'allowedTagPattern') ||
-    getStringFlag(parsed, 'healthcheckUrl') ||
-    getBooleanFlag(parsed, 'disableHealthcheck');
-
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
   const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
 
-  if (!hasDirectFlags && process.stdin.isTTY) {
-    return interactiveEnvEdit(repository, environment);
+  const envFilePath = join(getStackDirectory(repository), '.env');
+  const entries = readEnvFile(envFilePath);
+  const fileContent = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
+
+  const managedKeys = new Set<string>();
+  for (const line of fileContent.split(/\r?\n/)) {
+    if (line.startsWith('# BEGIN docker-deploy-webhook') || line.startsWith('# END docker-deploy-webhook')) continue;
+    if (managedKeys.size > 0 || false) { /* track state below */ }
+  }
+  let inManaged = false;
+  for (const line of fileContent.split(/\r?\n/)) {
+    if (line.startsWith('# BEGIN docker-deploy-webhook')) { inManaged = true; continue; }
+    if (line.startsWith('# END docker-deploy-webhook')) { inManaged = false; continue; }
+    if (inManaged) {
+      const eq = line.indexOf('=');
+      if (eq > 0) managedKeys.add(line.slice(0, eq).trim());
+    }
   }
 
-  const result = await editEnvironment({
-    repository,
-    environment,
-    imageName: getStringFlag(parsed, 'imageName'),
-    composeFile: getStringFlag(parsed, 'composeFile'),
-    runtimeEnvFile: getStringFlag(parsed, 'runtimeEnvFile'),
-    services: getListFlag(parsed, 'services'),
-    allowedWorkflows: getListFlag(parsed, 'allowedWorkflows'),
-    allowedBranches: getListFlag(parsed, 'allowedBranches'),
-    allowedTagPattern: getStringFlag(parsed, 'allowedTagPattern'),
-    healthcheckUrl: getStringFlag(parsed, 'healthcheckUrl'),
-    disableHealthcheck: getBooleanFlag(parsed, 'disableHealthcheck'),
-  });
-  printWarnings(result.warnings);
-  printJson(result);
+  const userKeys = Object.keys(entries).filter((k) => !managedKeys.has(k));
+
+  if (!process.stdin.isTTY) {
+    printJson({ repository, environment, envFile: envFilePath, variables: entries });
+    return 0;
+  }
+
+  process.stdout.write(`\n  Environment file: ${envFilePath}\n`);
+  process.stdout.write(`  ${environment} [${repository}]\n\n`);
+
+  if (managedKeys.size > 0) {
+    process.stdout.write('  Managed (auto-generated):\n');
+    for (const key of managedKeys) {
+      const masked = entries[key] ? `${entries[key].slice(0, 4)}${'*'.repeat(8)}` : '(empty)';
+      process.stdout.write(`    ${key} = ${masked}\n`);
+    }
+    process.stdout.write('\n');
+  }
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const options: SelectOption[] = [];
+
+    for (const key of userKeys) {
+      const display = entries[key] ?? '';
+      options.push({ label: key, value: `edit:${key}`, detail: display });
+    }
+
+    options.push({ label: 'Add variable', value: '__add__', detail: 'KEY=value' });
+    if (userKeys.length > 0) {
+      options.push({ label: 'Remove variable', value: '__remove__' });
+    }
+    options.push({ label: 'Done', value: '__done__' });
+
+    const choice = await selectFromList(options, 'Environment variables');
+    if (choice === '__exit__' || choice === '__done__') break;
+
+    if (choice === '__add__') {
+      const key = await resolveRequiredString(undefined, 'Variable name');
+      if (!key) continue;
+      const value = await resolveOptionalString(undefined, `Value for ${key}`, '');
+      entries[key] = value ?? '';
+      if (!userKeys.includes(key)) userKeys.push(key);
+    } else if (choice === '__remove__') {
+      const removeOptions: SelectOption[] = userKeys.map((k) => ({
+        label: k, value: k, detail: entries[k],
+      }));
+      const toRemove = await selectFromList(removeOptions, 'Remove variable');
+      if (toRemove !== '__exit__') {
+        const ok = await confirm(`Remove ${toRemove}?`, false);
+        if (ok) {
+          delete entries[toRemove];
+          const idx = userKeys.indexOf(toRemove);
+          if (idx >= 0) userKeys.splice(idx, 1);
+        }
+      }
+    } else if (choice.startsWith('edit:')) {
+      const key = choice.slice(5);
+      const value = await resolveOptionalString(undefined, key, entries[key]);
+      entries[key] = value ?? '';
+    }
+  }
+
+  const managedBlocks: string[] = [];
+  let currentBlock: string[] = [];
+  let inBlock = false;
+  for (const line of fileContent.split(/\r?\n/)) {
+    if (line.startsWith('# BEGIN docker-deploy-webhook')) {
+      inBlock = true;
+      currentBlock = [line];
+      continue;
+    }
+    if (line.startsWith('# END docker-deploy-webhook')) {
+      currentBlock.push(line);
+      managedBlocks.push(currentBlock.join('\n'));
+      inBlock = false;
+      continue;
+    }
+    if (inBlock) currentBlock.push(line);
+  }
+
+  const userLines = userKeys
+    .filter((k) => entries[k] !== undefined)
+    .map((k) => `${k}=${entries[k]}`);
+
+  const parts: string[] = [];
+  if (userLines.length > 0) parts.push(userLines.join('\n'));
+  for (const block of managedBlocks) parts.push(block);
+
+  writeFileSync(envFilePath, parts.join('\n\n') + '\n', 'utf8');
+  process.stdout.write(`\nSaved ${envFilePath}\n`);
   return 0;
 }
