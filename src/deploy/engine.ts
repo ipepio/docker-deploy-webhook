@@ -133,7 +133,6 @@ async function runUp(context: DeployContext, log: StepLogger): Promise<void> {
       context.runtimeEnvFile,
       'up',
       '-d',
-      ...context.services,
     ],
     {
       timeoutMs: context.timeouts.upTimeoutMs,
