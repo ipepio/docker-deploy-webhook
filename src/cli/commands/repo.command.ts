@@ -71,7 +71,7 @@ export async function handleRepoShow(parsed: ParsedCommandArgs): Promise<number>
 
 // ── repo edit ───────────────────────────────────────────────────────────────
 
-async function interactiveRepoEdit(repository: string): Promise<number> {
+async function interactiveEnvEdit(repository: string, preselectedEnv?: string): Promise<number> {
   const repoYaml = showRepository(repository);
   const envNames = Object.keys(repoYaml.environments);
 
@@ -80,11 +80,20 @@ async function interactiveRepoEdit(repository: string): Promise<number> {
     return 1;
   }
 
-  let environment = envNames[0];
-  if (envNames.length > 1) {
+  let environment: string;
+  if (preselectedEnv) {
+    environment = preselectedEnv;
+  } else if (envNames.length === 1) {
+    environment = envNames[0];
+  } else {
     const envOptions: SelectOption[] = envNames.map((e) => ({ label: e, value: e }));
     environment = await selectFromList(envOptions, 'Environment');
     if (environment === '__exit__') return 0;
+  }
+
+  if (!repoYaml.environments[environment]) {
+    process.stderr.write(`Environment not found: ${environment}\n`);
+    return 1;
   }
 
   const env = repoYaml.environments[environment];
@@ -267,7 +276,7 @@ export async function handleRepoEdit(parsed: ParsedCommandArgs): Promise<number>
     return 0;
   }
 
-  return interactiveRepoEdit(repository);
+  return interactiveEnvEdit(repository);
 }
 
 // ── repo remove ─────────────────────────────────────────────────────────────
@@ -364,12 +373,12 @@ export async function handleEnvEdit(parsed: ParsedCommandArgs): Promise<number> 
     getBooleanFlag(parsed, 'disableHealthcheck');
 
   const repository = await resolveRepository(getStringFlag(parsed, 'repository'));
+  const environment = await resolveEnvironment(repository, getStringFlag(parsed, 'environment'));
 
   if (!hasDirectFlags && process.stdin.isTTY) {
-    return interactiveRepoEdit(repository);
+    return interactiveEnvEdit(repository, environment);
   }
 
-  const { environment } = await resolveEnvArgs(parsed);
   const result = await editEnvironment({
     repository,
     environment,
